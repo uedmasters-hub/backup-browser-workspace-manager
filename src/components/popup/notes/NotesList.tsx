@@ -110,7 +110,7 @@ export default function NotesList() {
                   className="w-full rounded-2xl border border-transparent px-3 py-3 text-left transition-colors hover:border-neutral-200 hover:bg-neutral-50"
                 >
                   <p className="flex items-center gap-1.5 truncate pr-7 text-sm font-medium text-neutral-800">
-                    {note.lock && (
+                    {note.locked && (
                       <Lock
                         size={12}
                         className="shrink-0 text-amber-500"
@@ -122,7 +122,7 @@ export default function NotesList() {
                     </span>
                   </p>
                   <p className="mt-0.5 truncate text-xs text-neutral-400">
-                    {preview(note)}
+                    {note.locked ? "Locked · encrypted" : preview(note)}
                   </p>
                   <p className="mt-1 text-[11px] text-neutral-300">
                     {ago(note.updatedAt)}
@@ -131,7 +131,7 @@ export default function NotesList() {
                 <button
                   type="button"
                   onClick={() =>
-                    note.lock ? setPendingId(note.id) : deleteNote(note.id)
+                    note.locked ? setPendingId(note.id) : deleteNote(note.id)
                   }
                   aria-label="Delete note"
                   className="absolute right-2 top-2.5 rounded-lg p-1.5 text-neutral-300 opacity-0 transition-opacity hover:bg-white hover:text-red-500 group-hover/note:opacity-100"

@@ -36,12 +36,17 @@ function isFocusable(type: NoteBlockType): boolean {
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
+// Session PIN for the currently revealed locked note (memory only).
+let revealPin: string | undefined;
+
 interface NotesState {
   notes: Note[];
   activeNoteId?: string;
   query: string;
   loading: boolean;
   focusBlockId?: string;
+  /** Locked note currently decrypted for viewing this session. */
+  revealedId?: string;
 }
 
 interface NotesActions {
@@ -51,10 +56,11 @@ interface NotesActions {
   createNote: () => string;
   deleteNote: (id: string) => void;
   lockNote: (id: string, pin: string) => Promise<void>;
-  unlockNote: (id: string, pin: string) => Promise<boolean>;
+  removeLock: (id: string) => void;
+  revealNote: (id: string, pin: string) => Promise<boolean>;
   verifyNotePin: (id: string, pin: string) => Promise<boolean>;
-  openNote: (id: string) => void;
-  closeNote: () => void;
+  openNote: (id: string) => Promise<void>;
+  closeNote: () => Promise<void>;
   updateNoteTitle: (id: string, title: string) => void;
 
   addBlock: (type: NoteBlockType) => string;
@@ -75,16 +81,60 @@ import {
   decryptSecret,
 } from "../browser/notes/passwordCrypto";
 
-const LOCK_TOKEN = "bwm-note-lock";
-
 type NotesStore = NotesState & NotesActions;
 
 export const useNotesStore = create<NotesStore>((set, get) => {
+  // Never write plaintext for a locked note: encrypt the revealed note's
+  // blocks; keep ciphertext (and empty blocks) for locked notes at rest.
+  async function buildStorageSnapshot(): Promise<Note[]> {
+    const { notes, revealedId } = get();
+    return Promise.all(
+      notes.map(async (n) => {
+        if (!n.locked) {
+          return n;
+        }
+        if (n.id === revealedId && revealPin) {
+          const cipher = await encryptSecret(
+            JSON.stringify(n.blocks),
+            revealPin
+          );
+          return { ...n, cipher, blocks: [] };
+        }
+        return { ...n, blocks: [] };
+      })
+    );
+  }
+
+  async function persistNow() {
+    await saveNotes(await buildStorageSnapshot());
+  }
+
   function persist() {
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      void saveNotes(get().notes);
+      void persistNow();
     }, 350);
+  }
+
+  // Encrypt + save the revealed note, then drop its plaintext from memory.
+  async function flushAndHide() {
+    const id = get().revealedId;
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = undefined;
+    }
+    await persistNow();
+    revealPin = undefined;
+    // Clear reveal + plaintext in a single update so the editor never sees a
+    // transient "unlocked but empty" state (which would add a stray block).
+    set((state) => ({
+      revealedId: undefined,
+      notes: id
+        ? state.notes.map((n) =>
+            n.id === id && n.locked ? { ...n, blocks: [] } : n
+          )
+        : state.notes,
+    }));
   }
 
   function activeNote(): Note | undefined {
@@ -117,6 +167,7 @@ export const useNotesStore = create<NotesStore>((set, get) => {
     query: "",
     loading: false,
     focusBlockId: undefined,
+    revealedId: undefined,
 
     loadNotes: async () => {
       set({ loading: true });
@@ -154,45 +205,90 @@ export const useNotesStore = create<NotesStore>((set, get) => {
       persist();
     },
 
+    // Encrypt the note's content with the PIN. Stays revealed for editing;
+    // it is stored encrypted and re-secured when you leave it.
     lockNote: async (id, pin) => {
-      const lock = await encryptSecret(LOCK_TOKEN, pin);
+      const note = get().notes.find((n) => n.id === id);
+      if (!note) {
+        return;
+      }
+      const cipher = await encryptSecret(
+        JSON.stringify(note.blocks),
+        pin
+      );
+      revealPin = pin;
       set((state) => ({
+        revealedId: id,
         notes: state.notes.map((n) =>
-          n.id === id ? { ...n, lock, updatedAt: Date.now() } : n
+          n.id === id
+            ? { ...n, locked: true, cipher, updatedAt: Date.now() }
+            : n
         ),
       }));
       persist();
     },
 
-    verifyNotePin: async (id, pin) => {
+    // Decrypt for this session so the content can be viewed/edited.
+    revealNote: async (id, pin) => {
       const note = get().notes.find((n) => n.id === id);
-      if (!note?.lock) {
-        return true;
+      if (!note?.cipher) {
+        return false;
       }
       try {
-        return (await decryptSecret(note.lock, pin)) === LOCK_TOKEN;
+        const json = await decryptSecret(note.cipher, pin);
+        const blocks = JSON.parse(json) as NoteBlock[];
+        revealPin = pin;
+        set((state) => ({
+          revealedId: id,
+          notes: state.notes.map((n) =>
+            n.id === id ? { ...n, blocks } : n
+          ),
+        }));
+        return true;
       } catch {
         return false;
       }
     },
 
-    unlockNote: async (id, pin) => {
-      const ok = await get().verifyNotePin(id, pin);
-      if (!ok) {
-        return false;
-      }
+    // Remove protection entirely (must be revealed first; uses session PIN).
+    removeLock: (id) => {
       set((state) => ({
+        revealedId:
+          state.revealedId === id ? undefined : state.revealedId,
         notes: state.notes.map((n) =>
-          n.id === id ? { ...n, lock: undefined, updatedAt: Date.now() } : n
+          n.id === id
+            ? { ...n, locked: false, cipher: undefined, updatedAt: Date.now() }
+            : n
         ),
       }));
+      revealPin = undefined;
       persist();
-      return true;
     },
 
-    openNote: (id) => set({ activeNoteId: id, query: "" }),
+    verifyNotePin: async (id, pin) => {
+      const note = get().notes.find((n) => n.id === id);
+      if (!note?.cipher) {
+        return true;
+      }
+      try {
+        await decryptSecret(note.cipher, pin);
+        return true;
+      } catch {
+        return false;
+      }
+    },
 
-    closeNote: () => set({ activeNoteId: undefined, query: "" }),
+    openNote: async (id) => {
+      if (get().revealedId && get().revealedId !== id) {
+        await flushAndHide();
+      }
+      set({ activeNoteId: id, query: "" });
+    },
+
+    closeNote: async () => {
+      await flushAndHide();
+      set({ activeNoteId: undefined, query: "" });
+    },
 
     updateNoteTitle: (id, title) => {
       set((state) => ({
@@ -250,10 +346,30 @@ export const useNotesStore = create<NotesStore>((set, get) => {
     ensureTrailingBlock: () => {
       const note = activeNote();
       if (!note) return;
-      const last = note.blocks[note.blocks.length - 1];
-      if (isEmptyText(last)) return;
-      const block = createBlock("text");
-      mutateActive((blocks) => [...blocks, block]);
+      if (note.locked && get().revealedId !== note.id) {
+        return;
+      }
+      const blocks = note.blocks;
+
+      // Index just past the last meaningful block.
+      let end = blocks.length;
+      while (end > 0 && isEmptyText(blocks[end - 1])) {
+        end -= 1;
+      }
+      const trailingEmpties = blocks.length - end;
+
+      // Exactly one trailing empty line already → nothing to do.
+      if (trailingEmpties === 1) {
+        return;
+      }
+
+      const head = blocks.slice(0, end);
+      // Keep the first existing trailing empty (preserves focus/id) or make one.
+      const tail =
+        trailingEmpties >= 1 ? [blocks[end]] : [createBlock("text")];
+      const next = [...head, ...tail];
+
+      mutateActive(() => next);
     },
 
     transformBlock: (id, type) => {

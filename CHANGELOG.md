@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.13.2 — Fix duplicate trailing empty block in notes
+
+### Fixed
+
+- Notes could show two empty trailing lines. The lock "hide on leave" step
+  cleared the reveal flag and emptied the blocks in two separate updates, which
+  briefly let the editor add a stray trailing block; that update is now atomic.
+- Hardened the trailing-line invariant to keep exactly one empty line at the end
+  (collapsing any accidental duplicates on blur).
+
+## v0.13.1 — Lock screen polish
+
+### Changed
+
+- Removed the "Unlocked for this session…" banner in the editor.
+- Redesigned the locked-note screen: centered lock badge with a soft ring, a
+  clean centered PIN field (with a shake + "Incorrect PIN" on a wrong entry),
+  a full-width Unlock button, and an inline "Delete this note" mode (PIN-gated).
+
+## v0.13 — Notes: real encryption lock (not just delete protection)
+
+### Changed
+
+- Locking a note now ENCRYPTS its contents at rest (AES-GCM, PBKDF2-derived key
+  from your PIN). A locked note is unreadable without the PIN:
+  - Opening it shows a lock screen; the content only decrypts after the correct
+    PIN is entered (for that session).
+  - Export (download) and editing are unavailable until unlocked.
+  - Deleting requires the PIN.
+  - The notes list shows "Locked · encrypted" instead of any preview.
+  - Leaving the note re-secures it (plaintext dropped from memory; only
+    ciphertext is stored). Backups contain only the ciphertext, never the text.
+- The lock button toggles protection: lock (set a PIN) ⇄ remove lock (while
+  unlocked). Notes you don't lock are unaffected.
+
 ## v0.12 — Notes: no global header; optional per-note PIN lock
 
 ### Fixed

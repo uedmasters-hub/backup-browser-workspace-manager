@@ -71,6 +71,8 @@ export interface Note {
   blocks: NoteBlock[];
   createdAt: number;
   updatedAt: number;
-  /** Optional PIN lock. When set, deleting the note requires the PIN. */
-  lock?: SecretCipher;
+  /** When true, blocks are encrypted at rest in `cipher`. */
+  locked?: boolean;
+  /** AES-GCM ciphertext of JSON.stringify(blocks) when locked. */
+  cipher?: SecretCipher;
 }

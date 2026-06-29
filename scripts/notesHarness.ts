@@ -37,6 +37,9 @@ function check(label: string, cond: boolean, detail = "") {
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const S = () => useNotesStore.getState();
+function isBlank(b: { type: string; text?: string }): boolean {
+  return b.type === "text" && (b.text ?? "").trim() === "";
+}
 const active = () => S().notes.find((n) => n.id === S().activeNoteId);
 
 async function run() {
@@ -116,46 +119,89 @@ async function run() {
   check("collection persisted", Array.isArray(STORE.workspaceNotes) && (STORE.workspaceNotes as unknown[]).length === 2);
 
   // reload restores all
-  S().closeNote();
+  await S().closeNote();
   check("closeNote returns to list", S().activeNoteId === undefined);
   await S().loadNotes();
   check("reload restores every note", S().notes.length === 2);
 
-  // ---- per-note PIN lock (delete protection) ----
+  // ---- per-note PIN lock: encryption-at-rest + session reveal ----
   {
     const id = S().createNote();
     S().updateNoteTitle(id, "Secret");
+    const bid = S().notes.find((n) => n.id === id)!.blocks[0].id;
+    S().updateBlock(bid, { text: "top secret" } as Partial<NoteBlock>);
 
-    const before = S().notes.find((n) => n.id === id);
-    check("new note is unlocked", !before?.lock);
+    check("new note is unlocked", !S().notes.find((n) => n.id === id)?.locked);
     check(
-      "verify returns true when no lock set",
-      (await S().verifyNotePin(id, "anything")) === true
+      "verify true when not locked",
+      (await S().verifyNotePin(id, "x")) === true
     );
 
     await S().lockNote(id, "1234");
-    const locked = S().notes.find((n) => n.id === id);
-    check("lockNote stores a lock cipher", Boolean(locked?.lock));
-
+    let note = S().notes.find((n) => n.id === id)!;
     check(
-      "correct PIN verifies",
-      (await S().verifyNotePin(id, "1234")) === true
+      "lockNote sets locked + cipher",
+      note.locked === true && Boolean(note.cipher)
     );
     check(
-      "wrong PIN fails",
-      (await S().verifyNotePin(id, "0000")) === false
+      "stays revealed for editing right after locking",
+      S().revealedId === id && note.blocks.length > 0
     );
 
+    check("correct PIN verifies", (await S().verifyNotePin(id, "1234")) === true);
+    check("wrong PIN fails", (await S().verifyNotePin(id, "0000")) === false);
+
+    // leaving the note re-secures it: plaintext dropped, cipher kept
+    await S().closeNote();
+    note = S().notes.find((n) => n.id === id)!;
     check(
-      "unlock with wrong PIN is rejected",
-      (await S().unlockNote(id, "0000")) === false &&
-        Boolean(S().notes.find((n) => n.id === id)?.lock)
+      "closing hides plaintext",
+      note.blocks.length === 0 && S().revealedId === undefined
     );
+    check("cipher retained at rest", Boolean(note.cipher));
+
+    await S().openNote(id);
+    check("reopened note stays hidden", S().revealedId !== id);
+
+    check("reveal with wrong PIN fails", (await S().revealNote(id, "0000")) === false);
+    const ok = await S().revealNote(id, "1234");
+    note = S().notes.find((n) => n.id === id)!;
+    const restored = note.blocks.some(
+      (b) => b.type === "text" && (b as { text?: string }).text === "top secret"
+    );
+    check("reveal with correct PIN restores content", ok === true && restored);
+
+    S().removeLock(id);
+    note = S().notes.find((n) => n.id === id)!;
+    check("removeLock clears lock + cipher", !note.locked && !note.cipher);
+
+    S().deleteNote(id);
+  }
+
+  // ---- trailing empty normalization (no double blanks) ----
+  {
+    const id = S().createNote();
+    const blocks = () => S().notes.find((n) => n.id === id)!.blocks;
+
+    // single empty note stays single
+    S().ensureTrailingBlock();
+    check("empty note keeps exactly one block", blocks().length === 1);
+
+    // content -> gets exactly one trailing empty
+    S().updateBlock(blocks()[0].id, { text: "hello" } as Partial<NoteBlock>);
+    S().ensureTrailingBlock();
     check(
-      "unlock with correct PIN removes the lock",
-      (await S().unlockNote(id, "1234")) === true &&
-        !S().notes.find((n) => n.id === id)?.lock
+      "content gains one trailing empty",
+      blocks().length === 2 &&
+        !isBlank(blocks()[0]) &&
+        isBlank(blocks()[1])
     );
+
+    // two trailing empties collapse to one
+    S().addBlockAfter(blocks()[1].id, "text");
+    check("manually created a second trailing empty", blocks().length === 3);
+    S().ensureTrailingBlock();
+    check("double trailing empties collapse to one", blocks().length === 2);
 
     S().deleteNote(id);
   }
