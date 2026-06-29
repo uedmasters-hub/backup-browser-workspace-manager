@@ -12,9 +12,9 @@ export interface SearchableTab
 
   domain: string;
 
-  favorite: boolean;
-
   pinned: boolean;
 
   active: boolean;
+
+  favorite: boolean;
 }

@@ -56,11 +56,11 @@ export default class TabMapper
 
       domain,
 
-      favorite: tab.favorite,
-
       pinned: tab.pinned,
 
       active: tab.active,
+
+      favorite: tab.favorite,
 
       metadata: {
         favicon: tab.favicon,

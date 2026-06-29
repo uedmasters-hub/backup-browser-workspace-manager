@@ -1,13 +1,8 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  GripVertical,
   MoreHorizontal,
   Pencil,
   Shuffle,
@@ -18,9 +13,7 @@ import TabItem from "../TabItem";
 
 import { WORKSPACE_EMOJIS } from "../../../constants/workspaceEmojis";
 import { useTabStore } from "../../../stores/tabStore";
-import {
-  splitGroupTitle,
-} from "../../../browser/services/tabGroupService";
+import { splitGroupTitle } from "../../../browser/services/tabGroupService";
 
 import {
   TAB_GROUP_COLORS,
@@ -37,14 +30,8 @@ type Props = {
   tabs: WorkspaceTab[];
   canMoveLeft: boolean;
   canMoveRight: boolean;
-  draggingGroup: boolean;
-  draggingTabId?: number;
-  onTabDragStart: (tabId: number) => void;
-  onTabDrop: (targetTabId: number) => void;
-  onTabDropIntoGroup: (groupId: number) => void;
-  onGroupDragStart: (groupId: number) => void;
-  onGroupDrop: (targetGroupId: number) => void;
-  onUseChromeOrder: () => void;
+  /** Switch the list to manual order so menu reordering is visible. */
+  onUseManualOrder: () => void;
 };
 
 export default function TabGroupCard({
@@ -52,14 +39,7 @@ export default function TabGroupCard({
   tabs,
   canMoveLeft,
   canMoveRight,
-  draggingGroup,
-  draggingTabId,
-  onTabDragStart,
-  onTabDrop,
-  onTabDropIntoGroup,
-  onGroupDragStart,
-  onGroupDrop,
-  onUseChromeOrder,
+  onUseManualOrder,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -71,24 +51,12 @@ export default function TabGroupCard({
   const toggleGroupCollapsed = useTabStore(
     (state) => state.toggleGroupCollapsed
   );
-  const renameGroup = useTabStore(
-    (state) => state.renameGroup
-  );
-  const updateGroupColor = useTabStore(
-    (state) => state.updateGroupColor
-  );
-  const updateGroupEmoji = useTabStore(
-    (state) => state.updateGroupEmoji
-  );
-  const ungroupGroup = useTabStore(
-    (state) => state.ungroupGroup
-  );
-  const moveGroup = useTabStore(
-    (state) => state.moveGroup
-  );
-  const shuffleGroupTabs = useTabStore(
-    (state) => state.shuffleGroupTabs
-  );
+  const renameGroup = useTabStore((state) => state.renameGroup);
+  const updateGroupColor = useTabStore((state) => state.updateGroupColor);
+  const updateGroupEmoji = useTabStore((state) => state.updateGroupEmoji);
+  const ungroupGroup = useTabStore((state) => state.ungroupGroup);
+  const moveGroup = useTabStore((state) => state.moveGroup);
+  const shuffleGroupTabs = useTabStore((state) => state.shuffleGroupTabs);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -115,10 +83,7 @@ export default function TabGroupCard({
 
     return () => {
       document.removeEventListener("mousedown", closeMenu);
-      document.removeEventListener(
-        "keydown",
-        closeOnEscape
-      );
+      document.removeEventListener("keydown", closeOnEscape);
     };
   }, [menuOpen]);
 
@@ -136,52 +101,13 @@ export default function TabGroupCard({
 
   return (
     <section
-      onDragOver={(event) => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-
-        if (
-          event.dataTransfer.types.includes(
-            "application/x-workspace-tab"
-          )
-        ) {
-          onTabDropIntoGroup(group.id);
-        } else {
-          onGroupDrop(group.id);
-        }
-      }}
-      className={[
-        "relative mx-5 mb-3 overflow-visible rounded-2xl border bg-white/60 transition-opacity",
-        draggingGroup ? "opacity-50" : "",
-      ].join(" ")}
+      className="relative mx-5 mb-3 overflow-visible rounded-2xl border bg-white/60"
       style={{ borderColor: `${color}66` }}
     >
       <div className="flex min-h-12 items-center gap-2 px-3 py-2">
-        <span
-          draggable
-          title="Drag to reorder group"
-          onDragStart={(event) => {
-            event.stopPropagation();
-            event.dataTransfer.effectAllowed = "move";
-            event.dataTransfer.setData(
-              "application/x-workspace-group",
-              String(group.id)
-            );
-            onGroupDragStart(group.id);
-          }}
-          className="cursor-grab text-neutral-300 active:cursor-grabbing"
-        >
-          <GripVertical size={15} />
-        </span>
-
         <button
           type="button"
-          aria-label={
-            group.collapsed ? "Expand group" : "Collapse group"
-          }
+          aria-label={group.collapsed ? "Expand group" : "Collapse group"}
           onClick={() => toggleGroupCollapsed(group.id)}
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition hover:bg-black/5"
         >
@@ -200,9 +126,7 @@ export default function TabGroupCard({
         />
 
         {title.emoji && (
-          <span className="shrink-0 text-sm">
-            {title.emoji}
-          </span>
+          <span className="shrink-0 text-sm">{title.emoji}</span>
         )}
 
         {editing ? (
@@ -215,7 +139,6 @@ export default function TabGroupCard({
               if (event.key === "Enter") {
                 event.currentTarget.blur();
               }
-
               if (event.key === "Escape") {
                 setDraft(title.name);
                 event.currentTarget.blur();
@@ -272,9 +195,7 @@ export default function TabGroupCard({
                     key={value}
                     type="button"
                     aria-label={`${value} group color`}
-                    onClick={() =>
-                      void updateGroupColor(group.id, value)
-                    }
+                    onClick={() => void updateGroupColor(group.id, value)}
                     className={[
                       "h-4 w-4 rounded-full transition-transform hover:scale-125",
                       group.color === value
@@ -294,14 +215,10 @@ export default function TabGroupCard({
                   <button
                     key={emoji}
                     type="button"
-                    onClick={() =>
-                      void updateGroupEmoji(group.id, emoji)
-                    }
+                    onClick={() => void updateGroupEmoji(group.id, emoji)}
                     className={[
                       "flex h-6 w-6 items-center justify-center rounded-md text-sm hover:bg-neutral-100",
-                      title.emoji === emoji
-                        ? "bg-neutral-100"
-                        : "",
+                      title.emoji === emoji ? "bg-neutral-100" : "",
                     ].join(" ")}
                   >
                     {emoji}
@@ -311,9 +228,7 @@ export default function TabGroupCard({
 
               <button
                 type="button"
-                onClick={() =>
-                  void updateGroupEmoji(group.id, undefined)
-                }
+                onClick={() => void updateGroupEmoji(group.id, undefined)}
                 className="w-full rounded-lg px-2 py-1.5 text-left text-xs text-neutral-500 hover:bg-neutral-100"
               >
                 Remove emoji
@@ -347,7 +262,7 @@ export default function TabGroupCard({
                 disabled={tabs.length < 2}
                 onClick={() => {
                   setMenuOpen(false);
-                  onUseChromeOrder();
+                  onUseManualOrder();
                   void shuffleGroupTabs(group.id);
                 }}
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm text-neutral-700 hover:bg-neutral-100 disabled:opacity-30"
@@ -384,9 +299,6 @@ export default function TabGroupCard({
               pinned={tab.pinned}
               lastAccessed={tab.lastAccessed}
               nested
-              dragging={draggingTabId === tab.id}
-              onTabDragStart={onTabDragStart}
-              onTabDrop={onTabDrop}
             />
           ))}
         </div>

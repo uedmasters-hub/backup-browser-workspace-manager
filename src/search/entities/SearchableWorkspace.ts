@@ -8,6 +8,7 @@ export interface SearchableWorkspace
 
   chromeWindowId: number;
 
+
   archived: boolean;
 
   tabCount: number;

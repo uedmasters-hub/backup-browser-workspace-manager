@@ -89,9 +89,6 @@ export function sortTabs(
 
       case "favorites":
         return compareAccessed(a, b, "newest");
-
-      case "chrome-order":
-        return a.index - b.index;
     }
   });
 }

@@ -122,6 +122,7 @@ Properties
 - Cover Image
 - Tab Count
 - Active
+- Favourite
 - Archived
 - Created Date
 - Updated Date
@@ -141,6 +142,8 @@ Change Emoji
 Change Cover
 
 Archive
+
+Favourite
 
 Delete
 
@@ -166,7 +169,6 @@ Properties
 - Playing Audio
 - Group
 - Selected
-- Favourite
 
 ---
 
@@ -191,35 +193,6 @@ Move To Window
 Open In New Window
 
 Copy URL
-
----
-
-# Tab Group
-
-Properties
-
-- Native Chrome Group ID
-- Title
-- Emoji (stored as a title prefix)
-- Color
-- Collapsed
-- Tab Count
-- Position
-
-Actions
-
-- Create Group
-- Add Tabs To Group
-- Ungroup Selected Tabs
-- Expand / Collapse
-- Rename
-- Change Color
-- Add / Remove Emoji
-- Move Left / Right
-- Shuffle Tabs
-
-All group mutations update Chrome directly through `chrome.tabs` and
-`chrome.tabGroups`.
 
 ---
 

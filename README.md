@@ -2,13 +2,15 @@
 
 A Chrome (Manifest V3) extension that turns ordinary browser windows into
 named, reusable **workspaces** — each with its own emoji, color, cover image,
-and archive state — with favorite tabs kept close for faster navigation.
+favorite and archive state — so multitasking stays organized and tab overload
+goes away.
 
 The popup is a fast, native-feeling surface (420 × 640) for viewing, focusing,
 renaming and styling your windows, plus a search subsystem for finding windows
 and tabs.
 
-> **Status:** active development. See [`PROJECT_STATE.md`](./PROJECT_STATE.md).
+> **Status:** active development. The build is currently **broken** pending the
+> `tabStore` restoration milestone — see [`PROJECT_STATE.md`](./PROJECT_STATE.md).
 
 ---
 
@@ -16,13 +18,12 @@ and tabs.
 
 | Status | Feature |
 | ------ | ------- |
-| ✅ | Workspace metadata (name, emoji, color, archived) persisted to `chrome.storage.local` |
+| ✅ | Workspace metadata (name, emoji, color, favorite, archived) persisted to `chrome.storage.local` |
 | ✅ | Window listing, focus, and adaptive grid layout (1 / 2 / 3 / 4 / overflow) |
-| ✅ | Favorite tabs persisted by URL, sorted first, and promoted in search |
+| ✅ | Archive section + favorites sorting |
 | ✅ | Color picker / emoji picker dialogs |
-| ✅ | Search pipeline for workspaces and tabs |
-| ✅ | Tab management (switch, favorite, select, move, pin, duplicate, close) |
-| ✅ | Native Chrome tab groups (create, add/remove tabs, collapse, rename, color, emoji title, reorder, shuffle) |
+| 🚧 | Search pipeline (engine + providers + indexers) — Workspace search wired, Tab search next |
+| 🚧 | Tab management (`tabStore` is currently a non-compiling skeleton) |
 | ❌ | Command palette, browser memory, AI assistant, automation (roadmap) |
 
 See the full plan in [`ROADMAP.md`](./ROADMAP.md).
@@ -35,7 +36,7 @@ See the full plan in [`ROADMAP.md`](./ROADMAP.md).
 - **Vite 8** with [`@crxjs/vite-plugin`](https://crxjs.dev/) for MV3 bundling
 - **Tailwind CSS v4** (`@tailwindcss/vite`)
 - **Zustand** for state (`windowStore`, `tabStore`, `searchStore`, `uiStore`)
-- **Chrome Manifest V3** APIs: `chrome.tabs`, `chrome.tabGroups`, `chrome.windows`, `chrome.storage`
+- **Chrome Manifest V3** APIs: `chrome.tabs`, `chrome.windows`, `chrome.storage`
 - Supporting libs available in `package.json`: React Query, React Hook Form, Zod,
   Framer Motion, Lucide icons (not all are wired in yet)
 

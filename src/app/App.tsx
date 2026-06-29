@@ -16,10 +16,14 @@ import ProviderRegistry from "../search/providers/ProviderRegistry";
 import { registerWindowEvents } from "../browser/events/windowEvents";
 
 import { useSearchStore } from "../stores/searchStore";
+import { useUIStore } from "../stores/uiStore";
+
+import NotesPanel from "../components/popup/notes/NotesPanel";
 
 export default function App() {
   const query = useSearchStore((state) => state.query);
   const focused = useSearchStore((state) => state.focused);
+  const notesOpen = useUIStore((state) => state.notesOpen);
 
   const showSearch = query.trim().length > 0 || focused;
 
@@ -34,12 +38,14 @@ export default function App() {
 
   return (
     <>
-      <main className="flex h-[600px] w-[420px] flex-col overflow-hidden bg-[#F6F7FB]">
+      <main className="relative flex h-[600px] w-[420px] flex-col overflow-hidden bg-[#F6F7FB]">
         <Header />
 
         <section className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {showSearch ? <SearchPanel /> : <WindowSection />}
         </section>
+
+        {notesOpen && <NotesPanel />}
       </main>
 
       <MoveTabsDialog />

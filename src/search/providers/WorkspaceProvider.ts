@@ -80,16 +80,13 @@ export default class WorkspaceProvider
   ): SearchResult[] {
     return [...workspaces]
       .sort(
-        (a, b) =>
-          (b.updatedAt ?? 0) - (a.updatedAt ?? 0)
+        (a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)
       )
       .slice(0, DISCOVERY_LIMIT)
       .map((workspace, index) =>
         this.toResult(
           workspace,
-          40 +
-          recencyBoost(workspace.updatedAt) -
-          index,
+          50 + recencyBoost(workspace.updatedAt) - index,
           ["title"],
           []
         )

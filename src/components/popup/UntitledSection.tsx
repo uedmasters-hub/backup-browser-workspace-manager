@@ -1,7 +1,4 @@
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 
 import SectionHeader from "./SectionHeader";
 import TabItem from "./TabItem";
@@ -21,59 +18,20 @@ import {
 } from "../../browser/storage/tabSortRepository";
 
 export default function UntitledSection() {
-  const [sortMode, setSortMode] =
-    useState<TabSortMode>("favorites");
-  const [draggedTabId, setDraggedTabId] =
-    useState<number>();
-  const [draggedGroupId, setDraggedGroupId] =
-    useState<number>();
+  const [sortMode, setSortMode] = useState<TabSortMode>("favorites");
 
-  const tabs = useTabStore(
-    (state) => state.tabs
-  );
+  const tabs = useTabStore((state) => state.tabs);
+  const groups = useTabStore((state) => state.groups);
+  const selectionMode = useTabStore((state) => state.selectionMode);
+  const selectedTabs = useTabStore((state) => state.selectedTabs);
 
-  const groups = useTabStore(
-    (state) => state.groups
+  const searchQuery = useUIStore((state) => state.searchQuery);
+  const selectedWindowId = useWindowStore(
+    (state) => state.selectedWindowId
   );
-  const selectionMode = useTabStore(
-    (state) => state.selectionMode
-  );
-  const selectedTabs = useTabStore(
-    (state) => state.selectedTabs
-  );
-  const moveTabBefore = useTabStore(
-    (state) => state.moveTabBefore
-  );
-  const moveTabToGroup = useTabStore(
-    (state) => state.moveTabToGroup
-  );
-  const moveGroupBefore = useTabStore(
-    (state) => state.moveGroupBefore
-  );
-
-  const searchQuery = useUIStore(
-    (state) => state.searchQuery
-  );
-
-  const selectedWindowId =
-    useWindowStore(
-      (state) => state.selectedWindowId
-    );
 
   useEffect(() => {
     void getTabSortMode().then(setSortMode);
-  }, []);
-
-  useEffect(() => {
-    function clearDrag() {
-      setDraggedTabId(undefined);
-      setDraggedGroupId(undefined);
-    }
-
-    document.addEventListener("dragend", clearDrag);
-
-    return () =>
-      document.removeEventListener("dragend", clearDrag);
   }, []);
 
   if (!selectedWindowId) {
@@ -81,32 +39,24 @@ export default function UntitledSection() {
   }
 
   const matchingTabs = tabs.filter((tab) => {
-      if (!searchQuery.trim()) {
-        return true;
-      }
+    if (!searchQuery.trim()) {
+      return true;
+    }
+    const query = searchQuery.toLowerCase();
+    return (
+      tab.title.toLowerCase().includes(query) ||
+      tab.url.toLowerCase().includes(query)
+    );
+  });
 
-      const query =
-        searchQuery.toLowerCase();
-
-      return (
-        tab.title
-          .toLowerCase()
-          .includes(query) ||
-        tab.url
-          .toLowerCase()
-          .includes(query)
-      );
-    });
-
+  // Groups first, ordered by their position; ungrouped tabs after.
   const orderedGroups = groups
     .slice()
     .sort((a, b) => a.firstIndex - b.firstIndex)
     .map((group) => ({
       group,
       tabs: sortTabs(
-        matchingTabs.filter(
-          (tab) => tab.groupId === group.id
-        ),
+        matchingTabs.filter((tab) => tab.groupId === group.id),
         sortMode
       ),
     }))
@@ -125,49 +75,9 @@ export default function UntitledSection() {
     void saveTabSortMode(mode);
   }
 
-  function beginTabDrag(tabId: number) {
-    setDraggedTabId(tabId);
+  // Menu reordering (shuffle/move) is only visible in manual order.
+  function useManualOrder() {
     handleSortChange("chrome-order");
-  }
-
-  async function handleTabDrop(targetTabId: number) {
-    if (draggedTabId === undefined) {
-      return;
-    }
-
-    const tabId = draggedTabId;
-    setDraggedTabId(undefined);
-    await moveTabBefore(tabId, targetTabId);
-  }
-
-  async function handleTabDropIntoGroup(groupId: number) {
-    if (draggedTabId === undefined) {
-      return;
-    }
-
-    const tabId = draggedTabId;
-    setDraggedTabId(undefined);
-    await moveTabToGroup(tabId, groupId);
-  }
-
-  async function handleGroupDrop(targetGroupId: number) {
-    if (draggedGroupId === undefined) {
-      return;
-    }
-
-    const groupId = draggedGroupId;
-    setDraggedGroupId(undefined);
-    await moveGroupBefore(groupId, targetGroupId);
-  }
-
-  async function handleUngroupedDrop() {
-    if (draggedTabId === undefined) {
-      return;
-    }
-
-    const tabId = draggedTabId;
-    setDraggedTabId(undefined);
-    await moveTabToGroup(tabId);
   }
 
   return (
@@ -184,60 +94,23 @@ export default function UntitledSection() {
         </div>
       ) : (
         <>
-          {orderedGroups.map(
-            ({ group, tabs: groupTabs }, index) => (
-              <TabGroupCard
-                key={group.id}
-                group={group}
-                tabs={groupTabs}
-                canMoveLeft={index > 0}
-                canMoveRight={
-                  index < orderedGroups.length - 1
-                }
-                draggingGroup={draggedGroupId === group.id}
-                draggingTabId={draggedTabId}
-                onTabDragStart={beginTabDrag}
-                onTabDrop={(targetTabId) =>
-                  void handleTabDrop(targetTabId)
-                }
-                onTabDropIntoGroup={(groupId) =>
-                  void handleTabDropIntoGroup(groupId)
-                }
-                onGroupDragStart={setDraggedGroupId}
-                onGroupDrop={(targetGroupId) =>
-                  void handleGroupDrop(targetGroupId)
-                }
-                onUseChromeOrder={() =>
-                  handleSortChange("chrome-order")
-                }
-              />
-            )
-          )}
+          {orderedGroups.map(({ group, tabs: groupTabs }, index) => (
+            <TabGroupCard
+              key={group.id}
+              group={group}
+              tabs={groupTabs}
+              canMoveLeft={index > 0}
+              canMoveRight={index < orderedGroups.length - 1}
+              onUseManualOrder={useManualOrder}
+            />
+          ))}
 
-          <div
-            onDragOver={(event) => {
-              if (draggedTabId !== undefined) {
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-              }
-            }}
-            onDrop={(event) => {
-              event.preventDefault();
-              void handleUngroupedDrop();
-            }}
-            className={
-              draggedTabId !== undefined
-                ? "min-h-12"
-                : ""
-            }
-          >
-            {(ungroupedTabs.length > 0 ||
-              draggedTabId !== undefined) &&
-              groups.length > 0 && (
-                <div className="px-6 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-                  Ungrouped
-                </div>
-              )}
+          <div>
+            {ungroupedTabs.length > 0 && groups.length > 0 && (
+              <div className="px-6 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                Ungrouped
+              </div>
+            )}
 
             {ungroupedTabs.map((tab) => (
               <TabItem
@@ -248,11 +121,6 @@ export default function UntitledSection() {
                 favorite={tab.favorite}
                 pinned={tab.pinned}
                 lastAccessed={tab.lastAccessed}
-                dragging={draggedTabId === tab.id}
-                onTabDragStart={beginTabDrag}
-                onTabDrop={(targetTabId) =>
-                  void handleTabDrop(targetTabId)
-                }
               />
             ))}
           </div>

@@ -71,6 +71,7 @@ interface TabActions {
   selectAllTabs: () => void;
 
   closeSelectedTabs: () => Promise<void>;
+  closeTab: (id: number) => Promise<void>;
 
   pinSelectedTabs: () => Promise<void>;
 
@@ -272,6 +273,11 @@ export const useTabStore = create<TabStore>((set, get) => ({
     set((state) => ({
       selectedTabs: state.tabs.map((tab) => tab.id),
     })),
+
+  closeTab: async (id) => {
+    await closeTabs([id]);
+    await syncAfterMutation(get, set);
+  },
 
   closeSelectedTabs: async () => {
     const { selectedTabs } = get();

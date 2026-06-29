@@ -42,6 +42,7 @@ export default class WorkspaceMapper
 
       chromeWindowId: workspace.chromeWindowId ?? 0,
 
+
       archived: workspace.isArchived,
 
       tabCount: workspace.tabCount,

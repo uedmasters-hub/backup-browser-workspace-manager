@@ -1,4 +1,5 @@
 import { getAllTabs } from "../../browser/services/tabService";
+import { getFavoriteTabUrls } from "../../browser/storage/tabFavoriteRepository";
 
 import TabMapper from "../mappers/TabMapper";
 
@@ -6,10 +7,18 @@ import type { SearchableTab } from "../entities";
 
 export default class TabRepository {
   static async getAll(): Promise<SearchableTab[]> {
-    const tabs = await getAllTabs();
+    const [tabs, favoriteUrls] = await Promise.all([
+      getAllTabs(),
+      getFavoriteTabUrls(),
+    ]);
 
-    const mapper = new TabMapper();
+    const favorites = new Set(favoriteUrls);
 
-    return mapper.mapMany(tabs);
+    const annotated = tabs.map((tab) => ({
+      ...tab,
+      favorite: favorites.has(tab.url),
+    }));
+
+    return new TabMapper().mapMany(annotated);
   }
 }

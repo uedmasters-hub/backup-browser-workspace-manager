@@ -82,13 +82,13 @@ Four Zustand stores, each with a single responsibility:
 
 | Store | Responsibility |
 | ----- | -------------- |
-| `windowStore` | Source of truth for windows. `refreshWindows()` reads Chrome windows + persisted metadata and merges them via `windowMapper`. Owns rename/color/emoji/archive/delete, all of which persist through `workspaceRepository`. |
-| `tabStore` | Tab and native group listing, URL-backed favorites, multi-select mode, bulk tab actions, and Chrome-backed group mutations (membership/collapse/title/color/order). |
+| `windowStore` | Source of truth for windows. `refreshWindows()` reads Chrome windows + persisted metadata and merges them via `windowMapper`. Owns rename/favorite/color/emoji/archive/delete, all of which persist through `workspaceRepository`. |
+| `tabStore` | Tab listing, multi-select mode, and bulk tab actions (close/pin/duplicate/move). **Currently a non-compiling skeleton** — the active recovery milestone. |
 | `searchStore` | Query string, status (`idle`/`searching`/`success`/`empty`/`error`), results, recent searches, and `@deep` mode. Delegates to `SearchEngine`. |
 | `uiStore` | View mode, loading, and which dialog/menu/workspace is active. Pure UI state, no persistence. |
 
 State that must survive a popup close lives in `chrome.storage.local`
-(via `workspaceRepository` and `tabFavoriteRepository`), not in the stores.
+(via `workspaceRepository`), not in the stores.
 
 ---
 
@@ -96,8 +96,6 @@ State that must survive a popup close lives in `chrome.storage.local`
 
 - `windowService` — thin wrappers over `chrome.windows` (getAll, getCurrent, focus).
 - `tabService` / `tabActionService` — `chrome.tabs` reads and mutations.
-- `tabGroupService` — `chrome.tabs.group/ungroup` and `chrome.tabGroups` reads, updates, collapse, color, and movement.
-- `tabFavoriteRepository` — favorite tab URLs in `chrome.storage.local`.
 - `windowMapper` — converts a raw `chrome.windows.Window` + stored
   `WorkspaceMetadata` into the app's `WorkspaceWindow` view model.
 - `workspaceRepository` — CRUD over the `workspaces` key in `chrome.storage.local`
@@ -140,8 +138,8 @@ Key parts:
 - **`mappers/`**, **`parsers/`**, **`repositories/`**, **`results/`**, **`models/`**
   — supporting layers; `models/` re-exports all search types via `index.ts`.
 
-`WorkspaceProvider` and `TabProvider` are registered; the entity/indexer
-scaffolding for other content types exists for later phases.
+Today only `WorkspaceProvider` is registered; the entity/indexer scaffolding for
+the other content types exists to be wired up in later phases.
 
 ---
 
@@ -152,7 +150,7 @@ scaffolding for other content types exists for later phases.
 3. Store builds a merged `WorkspaceMetadata` and calls
    `workspaceRepository.upsertWorkspace(...)` → `chrome.storage.local`.
 4. Store calls `refreshWindows()`, which re-reads Chrome windows + metadata and
-   re-maps them.
+   re-maps them, sorting favorites first.
 5. Components re-render from the updated `windows` array.
 
 ---
@@ -167,7 +165,7 @@ content-first. Target quality bar: Apple / Arc Browser. Full UX detail lives in
 
 ## Future Extension Points
 
-- Register Bookmark/History/etc. providers in `ProviderRegistry`.
+- Register `TabProvider` (and later Bookmark/History/etc.) in `ProviderRegistry`.
 - Add a command palette on top of the existing search pipeline.
 - Use the background service worker to live-sync window/tab events.
 - Add `chrome.storage.sync` for cross-device workspace metadata.

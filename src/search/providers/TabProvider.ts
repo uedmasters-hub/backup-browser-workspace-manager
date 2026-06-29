@@ -24,8 +24,8 @@ import {
 
 const SOURCE_BASE = 95;
 const ACTIVE_BOOST = 8;
-const FAVORITE_BOOST = 12;
 const PINNED_BOOST = 4;
+const FAVORITE_BOOST = 14;
 const DISCOVERY_LIMIT = 6;
 
 export default class TabProvider
@@ -64,8 +64,8 @@ export default class TabProvider
 
       const score =
         match.score * SOURCE_BASE +
-        (tab.active ? ACTIVE_BOOST : 0) +
         (tab.favorite ? FAVORITE_BOOST : 0) +
+        (tab.active ? ACTIVE_BOOST : 0) +
         (tab.pinned ? PINNED_BOOST : 0) +
         recencyBoost(tab.lastAccessedAt);
 
@@ -87,14 +87,14 @@ export default class TabProvider
   ): SearchResult[] {
     return [...tabs]
       .sort((a, b) => {
-        if (a.favorite !== b.favorite) {
-          return a.favorite ? -1 : 1;
+        const favDelta =
+          Number(b.favorite) - Number(a.favorite);
+
+        if (favDelta !== 0) {
+          return favDelta;
         }
 
-        return (
-          (b.lastAccessedAt ?? 0) -
-          (a.lastAccessedAt ?? 0)
-        );
+        return (b.lastAccessedAt ?? 0) - (a.lastAccessedAt ?? 0);
       })
       .slice(0, DISCOVERY_LIMIT)
       .map((tab, index) =>

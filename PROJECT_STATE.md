@@ -12,11 +12,11 @@ memory, and an AI workspace assistant.
 
 | | |
 | --- | --- |
-| **Phase** | Search (Phase 2–3 complete) |
+| **Phase** | Merged: Universal Search (Level 2) + full tab management |
 | **Current milestone** | Tab Search shipped; search engine fully functional |
 | **Build** | ✅ Green (`tsc -b && vite build`) |
 | **Lint** | ✅ Clean (`eslint .`) |
-| **Search engine** | ✅ Verified by functional harness (13/13) |
+| **Search engine** | ✅ Intact; 26 search + 17 tab/sort harness checks pass |
 | **Runtime** | Not yet loaded in Chrome (build verified) |
 | **Git** | Initialized, `main` branch |
 | **Architecture** | Stable (documented in `ARCHITECTURE.md`) |
@@ -34,14 +34,12 @@ every mutation.
 
 | Status | Feature |
 | ------ | ------- |
-| ✅ | Workspace management (name, emoji, color, archive) |
+| ✅ | Workspace management (name, emoji, color, favorite, archive) |
 | ✅ | Window management (list, focus, adaptive grid) |
-| ✅ | URL-backed favorite tabs, favorite-first navigation and search ranking |
 | ✅ | Archive section |
 | ✅ | Color + emoji picker dialogs |
 | ✅ | Search engine: tiered + field-weighted scoring, fuzzy fallback, ranked & grouped |
 | ✅ | Tab management (`tabStore` full: select, move, pin, duplicate, close) |
-| ✅ | Native tab groups: membership, collapse, rename, color, emoji title, reorder, shuffle |
 | ✅ | Live window/tab event sync while popup is open |
 | ✅ | Keyboard launcher: arrow nav, Enter to run, discovery on focus |
 | ❌ | Command palette |

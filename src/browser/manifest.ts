@@ -12,7 +12,11 @@ export default defineManifest({
   permissions: [
     "tabs",
     "tabGroups",
-    "storage"
+    "storage",
+    "bookmarks",
+    "history",
+    "downloads",
+    "sessions"
   ],
 
   host_permissions: [
@@ -20,7 +24,20 @@ export default defineManifest({
   ],
 
   action: {
-    default_popup: "src/browser/popup/index.html"
+    default_popup: "src/browser/popup/index.html",
+    default_icon: {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+
+  icons: {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
   },
 
   commands: {
@@ -30,6 +47,13 @@ export default defineManifest({
         mac: "Command+Shift+K"
       },
       description: "Open the extension and focus search"
+    },
+    "open-notes": {
+      suggested_key: {
+        default: "Alt+J",
+        mac: "Command+J"
+      },
+      description: "Open the extension and show Notes"
     }
   },
 

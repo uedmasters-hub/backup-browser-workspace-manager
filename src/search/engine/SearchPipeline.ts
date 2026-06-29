@@ -1,14 +1,32 @@
-import type {
-  SearchQuery,
-  SearchResult,
-} from "../models";
+import type { SearchQuery, SearchResult } from "../models";
 
-import {
-  ProviderRegistry,
-} from "../providers";
+import { ProviderRegistry } from "../providers";
 
-import SearchRanker from "./SearchRanker";
-import ResultLimiter from "../results/ResultLimiter";
+import ResultArranger from "../results/ResultArranger";
+
+const PROVIDER_TIMEOUT_MS = 1500;
+
+/** Resolve to [] if a provider is too slow, so one source can't stall search. */
+function withTimeout(
+  promise: Promise<SearchResult[]>
+): Promise<SearchResult[]> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(
+      () => resolve([]),
+      PROVIDER_TIMEOUT_MS
+    );
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch(() => {
+        clearTimeout(timer);
+        resolve([]);
+      });
+  });
+}
 
 export default class SearchPipeline {
   static async run(
@@ -16,16 +34,14 @@ export default class SearchPipeline {
   ): Promise<SearchResult[]> {
     const providers = ProviderRegistry.getProviders();
 
-    const settled = await Promise.allSettled(
-      providers.map((provider) => provider.search(query))
+    const settled = await Promise.all(
+      providers.map((provider) =>
+        withTimeout(provider.search(query))
+      )
     );
 
-    const results = settled.flatMap((outcome) =>
-      outcome.status === "fulfilled" ? outcome.value : []
-    );
+    const results = settled.flat();
 
-    const ranked = SearchRanker.rank(results);
-
-    return ResultLimiter.limit(ranked, 50);
+    return ResultArranger.arrange(results);
   }
 }

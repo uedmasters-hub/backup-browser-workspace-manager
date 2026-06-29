@@ -28,6 +28,8 @@ interface UIState {
   activeWorkspaceMenu:
     | number
     | null;
+
+  notesOpen: boolean;
 }
 
 interface UIActions {
@@ -67,6 +69,12 @@ interface UIActions {
   ) => void;
 
   closeWorkspaceMenu: () => void;
+
+  toggleNotes: () => void;
+
+  openNotes: () => void;
+
+  closeNotes: () => void;
 }
 
 type UIStore =
@@ -86,6 +94,8 @@ export const useUIStore =
     activeWorkspaceId: null,
 
     activeWorkspaceMenu: null,
+
+    notesOpen: false,
 
     setSearchQuery: (query) =>
       set({
@@ -167,4 +177,15 @@ export const useUIStore =
         activeWorkspaceMenu:
           null,
       }),
+
+    toggleNotes: () =>
+      set((state) => ({
+        notesOpen: !state.notesOpen,
+      })),
+
+    openNotes: () =>
+      set({ notesOpen: true }),
+
+    closeNotes: () =>
+      set({ notesOpen: false }),
   }));

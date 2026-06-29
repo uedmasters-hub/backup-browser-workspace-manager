@@ -4,6 +4,31 @@ import type {
   WorkspaceTabGroup,
 } from "../../types/tab";
 
+
+/**
+ * Move a group to the front of its window, just after any pinned tabs
+ * (Chrome forbids placing a group before pinned tabs). Best-effort.
+ */
+async function moveGroupToFront(groupId: number): Promise<void> {
+  if (!chrome.tabGroups?.move || !chrome.tabGroups?.get) {
+    return;
+  }
+  try {
+    const group = await chrome.tabGroups.get(groupId);
+    const pinned = await chrome.tabs.query({
+      windowId: group.windowId,
+      pinned: true,
+    });
+    await chrome.tabGroups.move(groupId, { index: pinned.length });
+  } catch {
+    try {
+      await chrome.tabGroups.move(groupId, { index: 0 });
+    } catch {
+      // Leave the group where Chrome placed it.
+    }
+  }
+}
+
 export const TAB_GROUP_ID_NONE = -1;
 
 function requireTabIds(
@@ -65,6 +90,49 @@ export async function createTabGroup(
   await chrome.tabGroups.update(groupId, {
     title: "New group",
   });
+
+  // Keep groups first in the window (after pinned tabs).
+  await moveGroupToFront(groupId);
+
+  return groupId;
+}
+
+/**
+ * Group an arbitrary set of tabs (e.g. search selection). Tabs from different
+ * windows are first gathered into one window, then grouped and titled.
+ */
+export async function groupTabsByIds(
+  tabIds: number[],
+  title?: string
+): Promise<number> {
+  const ids = requireTabIds(tabIds);
+
+  const tabs = await Promise.all(
+    ids.map((id) => chrome.tabs.get(id))
+  );
+  const targetWindow = tabs[0].windowId;
+
+  if (tabs.some((tab) => tab.windowId !== targetWindow)) {
+    await chrome.tabs.move(ids, {
+      windowId: targetWindow,
+      index: -1,
+    });
+  }
+
+  const groupId = await (chrome.tabs.group({
+    tabIds: ids,
+  }) as Promise<number>);
+
+  if (chrome.tabGroups?.update) {
+    await chrome.tabGroups.update(groupId, {
+      title: title?.trim() || "Group",
+    });
+  }
+
+  // Keep the group (and its tabs) first in the window (after pinned tabs).
+  await moveGroupToFront(groupId);
+
+  await chrome.windows.update(targetWindow, { focused: true });
 
   return groupId;
 }
