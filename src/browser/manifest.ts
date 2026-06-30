@@ -5,7 +5,7 @@ export default defineManifest({
 
   name: "Browser Workspace Manager",
 
-  version: "0.1.0",
+  version: "1.1.0",
 
   description: "Manage browser windows and tabs.",
 
