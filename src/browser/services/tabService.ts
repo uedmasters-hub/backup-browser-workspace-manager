@@ -20,6 +20,7 @@ function mapChromeTab(
     pinned: tab.pinned,
     active: tab.active,
     audible: tab.audible ?? false,
+    muted: tab.mutedInfo?.muted ?? false,
     discarded: tab.discarded ?? false,
     lastAccessed: tab.lastAccessed,
   };

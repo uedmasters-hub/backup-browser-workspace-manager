@@ -1,6 +1,9 @@
-import { Check, Pin, Star, X } from "lucide-react";
+import { Check, Pause, Pin, Play, Star, Volume2, VolumeX, X } from "lucide-react";
 
 import { useTabStore } from "../../stores/tabStore";
+import { useMediaStore } from "../../stores/mediaStore";
+import MediaSeek from "./MediaSeek";
+import { formatTabAge } from "./tabFormat";
 
 type Props = {
   id: number;
@@ -8,32 +11,12 @@ type Props = {
   favicon?: string;
   favorite?: boolean;
   pinned?: boolean;
+  active?: boolean;
+  audible?: boolean;
+  muted?: boolean;
   lastAccessed?: number;
   nested?: boolean;
 };
-
-function formatTabAge(lastAccessed?: number): string {
-  if (!lastAccessed) {
-    return "—";
-  }
-
-  const elapsed = Math.max(0, Date.now() - lastAccessed);
-  const minutes = Math.floor(elapsed / 60_000);
-
-  if (minutes < 1) return "Now";
-  if (minutes < 60) return `${minutes}m`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d`;
-
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo`;
-
-  return `${Math.floor(months / 12)}y`;
-}
 
 export default function TabItem({
   id,
@@ -41,6 +24,9 @@ export default function TabItem({
   favicon,
   favorite = false,
   pinned = false,
+  active = false,
+  audible = false,
+  muted = false,
   lastAccessed,
   nested = false,
 }: Props) {
@@ -52,9 +38,19 @@ export default function TabItem({
   const activateTab = useTabStore((state) => state.activateTab);
   const toggleFavorite = useTabStore((state) => state.toggleFavorite);
   const closeTab = useTabStore((state) => state.closeTab);
+  const toggleMuteTab = useTabStore((state) => state.toggleMuteTab);
+
+  const media = useMediaStore((state) => state.byTab[id]);
+  const toggleMedia = useMediaStore((state) => state.toggle);
 
   const isSelected = selectedTabs.includes(id);
   const age = formatTabAge(lastAccessed);
+  const isMedia = audible || muted;
+  const playing = audible && !muted;
+  const hasControls = Boolean(media?.hasMedia);
+  const mediaPlaying = media?.playing ?? playing;
+  const effectivePlaying = hasControls ? Boolean(media?.playing) : playing;
+  const showSeek = hasControls && (media?.duration ?? 0) > 0;
 
   return (
     <div
@@ -66,12 +62,20 @@ export default function TabItem({
         }
       }}
       className={[
-        "group flex cursor-pointer items-center rounded-2xl bg-white px-4 py-4 transition-all hover:bg-neutral-50 active:scale-[0.99]",
+        "group relative flex cursor-pointer items-center rounded-2xl bg-white px-4 py-4 transition-all hover:bg-neutral-50 active:scale-[0.99]",
         nested
           ? "mx-2 mb-2 border border-neutral-100 shadow-none"
           : "mx-5 mb-3 shadow-sm",
       ].join(" ")}
     >
+      {active && !selectionMode && (
+        <span
+          aria-hidden
+          title="Current page"
+          className="absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-neutral-900"
+        />
+      )}
+
       {selectionMode ? (
         <div
           className={[
@@ -84,11 +88,72 @@ export default function TabItem({
           {isSelected && <Check size={14} />}
         </div>
       ) : (
-        <div className="mr-3 flex h-6 w-6 items-center justify-center">
+        <div className="relative mr-3 flex h-6 w-6 items-center justify-center">
           {favicon ? (
-            <img src={favicon} alt="" className="h-5 w-5 rounded" />
+            <img
+              src={favicon}
+              alt=""
+              className={[
+                "h-5 w-5 rounded",
+                hasControls ? "group-hover:opacity-0" : "",
+              ].join(" ")}
+            />
           ) : (
-            <div className="h-3 w-3 rounded-full bg-violet-500" />
+            <div
+              className={[
+                "h-3 w-3 rounded-full bg-violet-500",
+                hasControls ? "group-hover:opacity-0" : "",
+              ].join(" ")}
+            />
+          )}
+
+          {isMedia && (
+            <span
+              aria-hidden
+              className={[
+                "absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full ring-2 ring-white",
+                effectivePlaying ? "bg-neutral-900" : "bg-neutral-300",
+                hasControls ? "group-hover:hidden" : "",
+              ].join(" ")}
+            >
+              {effectivePlaying ? (
+                <span className="flex h-1.5 items-end gap-[1px]">
+                  <span
+                    className="bwm-eq-bar w-[1.5px] bg-white"
+                    style={{ height: "100%", animationDelay: "0ms" }}
+                  />
+                  <span
+                    className="bwm-eq-bar w-[1.5px] bg-white"
+                    style={{ height: "100%", animationDelay: "150ms" }}
+                  />
+                  <span
+                    className="bwm-eq-bar w-[1.5px] bg-white"
+                    style={{ height: "100%", animationDelay: "300ms" }}
+                  />
+                </span>
+              ) : (
+                <VolumeX size={9} className="text-white" />
+              )}
+            </span>
+          )}
+
+          {hasControls && (
+            <button
+              type="button"
+              aria-label={mediaPlaying ? `Pause ${title}` : `Play ${title}`}
+              title={mediaPlaying ? "Pause" : "Play"}
+              onClick={(event) => {
+                event.stopPropagation();
+                void toggleMedia(id);
+              }}
+              className="absolute inset-0 hidden items-center justify-center rounded-md text-red-600 group-hover:flex"
+            >
+              {mediaPlaying ? (
+                <Pause size={15} fill="currentColor" />
+              ) : (
+                <Play size={15} fill="currentColor" />
+              )}
+            </button>
           )}
         </div>
       )}
@@ -111,6 +176,26 @@ export default function TabItem({
       <div className="ml-2 flex h-8 shrink-0 items-center justify-end gap-0.5">
         {!selectionMode && (
           <>
+            {isMedia && (
+              <button
+                type="button"
+                aria-label={muted ? `Unmute ${title}` : `Mute ${title}`}
+                title={muted ? "Unmute tab" : "Mute tab"}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void toggleMuteTab(id);
+                }}
+                className={[
+                  "flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-neutral-100",
+                  muted
+                    ? "text-neutral-400 hover:text-neutral-700"
+                    : "text-neutral-600 hover:text-neutral-900",
+                ].join(" ")}
+              >
+                {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+              </button>
+            )}
+
             <span
               title={
                 age === "Now"
@@ -161,6 +246,16 @@ export default function TabItem({
           </>
         )}
       </div>
+
+      {showSeek && !selectionMode && (
+        <div className="absolute inset-x-4 bottom-1.5">
+          <MediaSeek
+            tabId={id}
+            currentTime={media?.currentTime ?? 0}
+            duration={media?.duration ?? 0}
+          />
+        </div>
+      )}
     </div>
   );
 }

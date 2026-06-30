@@ -17,6 +17,8 @@ import { registerWindowEvents } from "../browser/events/windowEvents";
 
 import { useSearchStore } from "../stores/searchStore";
 import { useUIStore } from "../stores/uiStore";
+import { useTabStore } from "../stores/tabStore";
+import { useMediaStore } from "../stores/mediaStore";
 
 import NotesPanel from "../components/popup/notes/NotesPanel";
 
@@ -34,6 +36,35 @@ export default function App() {
     if (typeof chrome !== "undefined" && chrome.windows) {
       return registerWindowEvents();
     }
+  }, []);
+
+  // Live media polling: refresh play state/progress for audible tabs ~1×/sec,
+  // but only while the home list is visible.
+  useEffect(() => {
+    if (typeof chrome === "undefined" || !chrome.scripting) {
+      return;
+    }
+    const tick = () => {
+      // Reflect on both the home list and search; pause only for notes.
+      if (useUIStore.getState().notesOpen) {
+        return;
+      }
+      const known = useMediaStore.getState().byTab;
+      const ids = useTabStore
+        .getState()
+        .tabs.filter(
+          (t) =>
+            !t.discarded &&
+            (t.audible || t.muted || known[t.id]?.hasMedia)
+        )
+        .map((t) => t.id);
+      if (ids.length > 0) {
+        void useMediaStore.getState().refresh(ids);
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   return (

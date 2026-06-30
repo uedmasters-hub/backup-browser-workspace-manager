@@ -25,3 +25,51 @@ body {
 .animate-shake {
   animation: bwm-shake 0.32s ease-in-out;
 }
+
+@keyframes bwm-eq {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+.bwm-eq-bar {
+  transform-origin: bottom;
+  animation: bwm-eq 0.9s ease-in-out infinite;
+}
+
+/* Media seek slider (only rendered on controllable media tabs) */
+.bwm-seek {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  border-radius: 9999px;
+  cursor: pointer;
+  background: linear-gradient(
+    to right,
+    #ef4444 var(--pct, 0%),
+    #e5e7eb var(--pct, 0%)
+  );
+}
+.bwm-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 11px;
+  width: 11px;
+  border-radius: 9999px;
+  background: #ef4444;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.bwm-seek::-moz-range-thumb {
+  height: 11px;
+  width: 11px;
+  border: none;
+  border-radius: 9999px;
+  background: #ef4444;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.group:hover .bwm-seek::-webkit-slider-thumb {
+  opacity: 1;
+}
+.group:hover .bwm-seek::-moz-range-thumb {
+  opacity: 1;
+}

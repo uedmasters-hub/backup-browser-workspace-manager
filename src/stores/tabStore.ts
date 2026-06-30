@@ -20,6 +20,7 @@ import {
   duplicateTabs,
   moveTabs,
   activateTab as activateChromeTab,
+  setTabMuted,
 } from "../browser/services/tabActionService";
 
 import { useWindowStore } from "./windowStore";
@@ -72,6 +73,7 @@ interface TabActions {
 
   closeSelectedTabs: () => Promise<void>;
   closeTab: (id: number) => Promise<void>;
+  toggleMuteTab: (id: number) => Promise<void>;
 
   pinSelectedTabs: () => Promise<void>;
 
@@ -276,6 +278,12 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
   closeTab: async (id) => {
     await closeTabs([id]);
+    await syncAfterMutation(get, set);
+  },
+
+  toggleMuteTab: async (id) => {
+    const tab = get().tabs.find((t) => t.id === id);
+    await setTabMuted(id, !tab?.muted);
     await syncAfterMutation(get, set);
   },
 

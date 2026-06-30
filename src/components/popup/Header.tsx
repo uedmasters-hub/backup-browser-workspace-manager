@@ -6,6 +6,7 @@ import {
   Download,
   Menu,
   RefreshCw,
+  PictureInPicture2,
   Search,
   StickyNote,
   Upload,
@@ -44,6 +45,37 @@ function syncAgo(ts: number): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+async function injectFloaterIntoOpenTabs(): Promise<void> {
+  try {
+    const file = chrome.runtime.getManifest().content_scripts?.[0]?.js?.[0];
+    if (!file || !chrome.scripting?.executeScript) {
+      return;
+    }
+    const tabs = await chrome.tabs.query({});
+    await Promise.all(
+      tabs.map(async (tab) => {
+        if (tab.id == null) {
+          return;
+        }
+        const url = tab.url ?? "";
+        if (!/^https?:|^file:/.test(url)) {
+          return;
+        }
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: [file],
+          });
+        } catch {
+          // Restricted/blocked page — skip.
+        }
+      })
+    );
+  } catch {
+    // Best effort.
+  }
+}
+
 export default function Header() {
   const inputRef = useRef<HTMLInputElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -77,6 +109,7 @@ export default function Header() {
   const [lastSynced, setLastSynced] = useState<number>();
   const [exporting, setExporting] = useState(false);
   const [busy, setBusy] = useState<null | "exported" | "importing">(null);
+  const [floaterOn, setFloaterOn] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
   const showSearch = query.trim().length > 0 || focused;
@@ -197,6 +230,44 @@ export default function Header() {
       document.removeEventListener("keydown", onEsc);
     };
   }, [menuOpen]);
+
+  // Floating-note toggle: reflect + persist the enabled flag.
+  useEffect(() => {
+    let active = true;
+    void chrome.storage?.local
+      .get(STORAGE_KEYS.FLOATER_ENABLED)
+      .then((r) => {
+        if (active) {
+          setFloaterOn(Boolean(r[STORAGE_KEYS.FLOATER_ENABLED]));
+        }
+      });
+    const onChange = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      area: string
+    ) => {
+      if (area === "local" && STORAGE_KEYS.FLOATER_ENABLED in changes) {
+        setFloaterOn(Boolean(changes[STORAGE_KEYS.FLOATER_ENABLED].newValue));
+      }
+    };
+    chrome.storage?.onChanged.addListener(onChange);
+    return () => {
+      active = false;
+      chrome.storage?.onChanged.removeListener(onChange);
+    };
+  }, []);
+
+  async function toggleFloater() {
+    const next = !floaterOn;
+    setFloaterOn(next);
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.FLOATER_ENABLED]: next,
+    });
+    if (next) {
+      // Tabs already open before this toggle have no content script yet
+      // (declarative scripts only run on future loads), so inject now.
+      await injectFloaterIntoOpenTabs();
+    }
+  }
 
   // Chrome-level "open-notes" command: opens the popup straight into Notes.
   useEffect(() => {
@@ -382,6 +453,47 @@ export default function Header() {
         <kbd className="rounded-md border border-neutral-200 bg-neutral-50 px-1.5 py-0.5 font-sans text-[10px] font-medium text-neutral-400">
           {notesShortcut}
         </kbd>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => void toggleFloater()}
+        role="menuitemcheckbox"
+        aria-checked={floaterOn}
+        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-neutral-100"
+      >
+        <span
+          className={[
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+            floaterOn
+              ? "bg-amber-50 text-amber-600"
+              : "bg-neutral-100 text-neutral-700",
+          ].join(" ")}
+        >
+          <PictureInPicture2 size={17} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-neutral-800">
+            Floating note
+          </span>
+          <span className="block truncate text-[11px] text-neutral-400">
+            A draggable quick note on the page
+          </span>
+        </span>
+        <span
+          aria-hidden
+          className={[
+            "relative h-[18px] w-8 shrink-0 rounded-full transition-colors",
+            floaterOn ? "bg-amber-500" : "bg-neutral-200",
+          ].join(" ")}
+        >
+          <span
+            className={[
+              "absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-all",
+              floaterOn ? "left-[15px]" : "left-0.5",
+            ].join(" ")}
+          />
+        </span>
       </button>
 
       <div className="my-1.5 border-t border-neutral-100" />

@@ -21,6 +21,8 @@ export interface WorkspaceTab {
 
   audible: boolean;
 
+  muted: boolean;
+
   discarded: boolean;
 
   lastAccessed?: number;

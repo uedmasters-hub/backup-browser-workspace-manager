@@ -5,7 +5,7 @@
  * and favorites-first sorting across modes.
  */
 
-const ACTIVATED: { tabId?: number; windowId?: number } = {};
+const ACTIVATED: { tabId?: number; windowId?: number; muted?: boolean } = {};
 const STORE: Record<string, unknown> = {
   favoriteTabs: ["https://b.com"],
 };
@@ -37,8 +37,11 @@ const TABS: MockTab[] = [
         if (i >= 0) TABS.splice(i, 1);
       }
     },
-    update: async (tabId: number) => {
+    update: async (tabId: number, info?: { muted?: boolean }) => {
       ACTIVATED.tabId = tabId;
+      if (info && typeof info.muted === "boolean") {
+        ACTIVATED.muted = info.muted;
+      }
     },
   },
   windows: {
@@ -123,6 +126,14 @@ async function run() {
   for (const mode of ["newest", "oldest", "title-asc", "title-desc", "pinned", "favorites"] as const) {
     const sorted = sortTabs(sample, mode);
     check(`favorites pinned first in "${mode}" mode`, sorted[0].favorite === true, sorted.map((t) => t.title).join(","));
+  }
+
+  // toggle mute on a media tab
+  await useTabStore.getState().loadTabs(1);
+  const firstId = useTabStore.getState().tabs[0]?.id;
+  if (typeof firstId === "number") {
+    await useTabStore.getState().toggleMuteTab(firstId);
+    check("toggleMuteTab calls tabs.update with muted=true", ACTIVATED.muted === true);
   }
 
   console.log(`\nRESULT: ${passed} passed, ${failed} failed`);

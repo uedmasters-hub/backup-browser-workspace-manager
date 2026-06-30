@@ -45,7 +45,7 @@ export default function SearchPanel() {
   if (status === "empty") {
     if (isDiscovery) {
       return (
-        <div className="min-h-full bg-white px-5 py-16 text-center text-sm text-neutral-400">
+        <div className="min-h-full bg-[#F6F7FB] px-5 py-16 text-center text-sm text-neutral-400">
           Start typing to search your tabs, workspaces, bookmarks and history.
         </div>
       );
@@ -54,8 +54,8 @@ export default function SearchPanel() {
   }
 
   return (
-    <div className="relative min-h-full bg-white">
-      <div className="space-y-0.5 px-2 py-2 pb-20">
+    <div className="relative min-h-full bg-[#F6F7FB]">
+      <div className="px-3 py-2 pb-20">
         {isDiscovery && recentSearches.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 px-2.5 pb-2 pt-1">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">

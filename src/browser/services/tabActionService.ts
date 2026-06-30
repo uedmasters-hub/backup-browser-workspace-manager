@@ -74,3 +74,10 @@ export async function activateTab(
     await chrome.windows.update(windowId, { focused: true });
   }
 }
+
+export async function setTabMuted(
+  tabId: number,
+  muted: boolean
+): Promise<void> {
+  await chrome.tabs.update(tabId, { muted });
+}

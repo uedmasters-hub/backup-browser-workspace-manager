@@ -16,7 +16,8 @@ export default defineManifest({
     "bookmarks",
     "history",
     "downloads",
-    "sessions"
+    "sessions",
+    "scripting"
   ],
 
   host_permissions: [
@@ -56,6 +57,14 @@ export default defineManifest({
       description: "Open the extension and show Notes"
     }
   },
+
+  content_scripts: [
+    {
+      matches: ["<all_urls>"],
+      js: ["src/browser/content/noteFloater.ts"],
+      run_at: "document_idle"
+    }
+  ],
 
   background: {
     service_worker: "src/browser/background/index.ts",

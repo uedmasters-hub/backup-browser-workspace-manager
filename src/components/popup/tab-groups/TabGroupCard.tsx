@@ -297,6 +297,9 @@ export default function TabGroupCard({
               favicon={tab.favicon}
               favorite={tab.favorite}
               pinned={tab.pinned}
+              active={tab.active}
+              audible={tab.audible}
+              muted={tab.muted}
               lastAccessed={tab.lastAccessed}
               nested
             />

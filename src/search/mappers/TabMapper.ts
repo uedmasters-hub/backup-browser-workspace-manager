@@ -65,6 +65,7 @@ export default class TabMapper
       metadata: {
         favicon: tab.favicon,
         audible: tab.audible,
+        muted: tab.muted,
       },
     };
   }

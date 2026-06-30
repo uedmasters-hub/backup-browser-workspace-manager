@@ -1,5 +1,180 @@
 # Changelog
 
+## v0.18.1 — Fix: quick note saved with empty body
+
+### Fixed
+
+- Saving a single-paragraph quick note put all the text into the title and left
+  the body empty. The body now keeps the full text (the first line is used as
+  the title and is also the first body line, Apple-Notes style), so the saved
+  note opens with its content intact.
+
+## v0.18 — Floating note: Save to Notes + New
+
+### Added
+
+- The floating quick note now has a footer with two actions:
+  - "Save" files the current text into your Notes collection (the first
+    non-empty line becomes the title, the rest become the body), with a brief
+    "Saved ✓" confirmation. It appears in the popup's Notes next time you open
+    it.
+  - "＋ New" clears the note so you can start another one on the page.
+- Note-building extracted to a small shared helper with its own harness.
+
+## v0.17.2 — Floating note now accepts typing
+
+### Fixed
+
+- You couldn't type in the floating note on some sites — keystrokes were going
+  to the page's own input. Sites like Claude.ai have a "type anywhere to focus
+  the chat box" handler that was capturing the note's keystrokes. The note now
+  keeps its keyboard, clipboard and pointer events to itself, so typing, paste
+  and selection work and focus stays in the note.
+
+## v0.17.1 — Floating note shows immediately on open tabs
+
+### Fixed
+
+- Toggling the floating note on did nothing on tabs that were already open. A
+  declarative content script only runs on pages loaded after the extension is
+  reloaded, so existing tabs had no script listening. Enabling now also injects
+  the floater into all open http/file tabs right away (new tabs still get it
+  automatically). The content script is idempotent, so it never double-mounts.
+
+## v0.17 — Floating note on the page
+
+### Added
+
+- A floating quick note you can pin to any web page. Toggle it from the popup
+  menu ("Floating note"). When on, a small, draggable card appears on the page;
+  drag it by the header to place it anywhere. Its text, position and on/off
+  state are saved (chrome.storage), so it's the same note on every tab and the
+  ✕ on the card (or the popup toggle) hides it again.
+- Implemented as a content script in an isolated shadow root (no page-style
+  bleed either way), top frame only.
+
+### Notes
+
+- This is a separate lightweight scratch note, kept intentionally minimal; the
+  full block notes (with lock/encryption, export) still live in the popup.
+- The floater can't appear on pages where extensions are blocked (chrome://
+  pages, the Web Store). Adds a content script on <all_urls> (host access was
+  already granted); reload the unpacked extension to register it.
+
+## v0.16.2 — Clean "Switch to tab" hover on search
+
+### Fixed
+
+- The "Switch to tab" hint no longer jitters or only appears in the gap between
+  cards. It was set to hide on hover, so it only showed when a card was the
+  active (keyboard) row but not hovered. It now appears cleanly on hover and
+  stays for the keyboard-active row; the relative age shows only at rest.
+
+### Changed
+
+- Removed the seek slider from search results (kept on the home cards). Search
+  media cards keep play/pause (over the favicon), mute/unmute, the now-playing
+  indicator, and the current-page accent — the search flow is find → switch →
+  play/pause/mute.
+
+## v0.16.1 — Fix search slider, multi-media accuracy, current-page indicator
+
+### Fixed
+
+- Seek slider now works on the search page. The card's mousedown handler (which
+  keeps the search box focused) was swallowing the slider's drag; the slider now
+  stops its own pointer events from bubbling.
+- With several media tabs open, each card now reflects its own true play state:
+  the in-page picker prefers the actually-playing element (then longest), and
+  the now-playing badge follows the real state instead of the audible flag.
+- Media tabs that pause keep their controls — polling now also covers tabs
+  already known to have media, not just currently-audible ones.
+
+### Added
+
+- Current-page indicator: the active tab shows a left accent bar on both the
+  home and search cards.
+
+## v0.16 — Consistent card style across home and search
+
+### Changed
+
+- Search results now use the same white rounded-card style as the home list
+  (gray background, shadowed cards, matching icon, title weight and spacing)
+  instead of the old tight borderless rows.
+- Tab results in search are now full media cards: play/pause over the favicon
+  on hover, mute/unmute, the relative age, and the real draggable seek slider
+  pinned to the card bottom (the search row is no longer a <button>, so the
+  slider works there too).
+- Extracted shared MediaSeek and the age formatter so home and search render
+  identical controls from one source.
+
+## v0.15.1 — Media controls on search; uniform card height
+
+### Fixed
+
+- The home media card grew taller because the seek slider added a row. The
+  slider is now pinned to the card's bottom edge, so media cards keep the same
+  height as every other card.
+
+### Added
+
+- Search results now reflect media too: tab results that are playing show the
+  now-playing equalizer badge, a play/pause button on hover, a mute/unmute
+  control, and a thin progress bar along the row bottom.
+- Media polling now runs on the search view as well (paused only while notes
+  are open), so search reflects live play state.
+
+### Notes
+
+- The precise drag-to-seek slider stays on the home cards; search rows show a
+  read-only progress bar (a draggable slider can't nest inside the search row's
+  button), plus play/pause and mute.
+
+## v0.15 — Full media controls on media tabs
+
+### Added
+
+- Play / pause: hovering a media tab swaps its favicon for a play/pause button
+  that controls the page's <video>/<audio>.
+- Seek slider: a thin red progress line under the title that becomes a
+  draggable scrubber on hover — dragging seeks the media precisely on release.
+- Live progress: play state and position refresh ~1×/sec while the home list is
+  open (paused while you're dragging the slider).
+- Mute / unmute stays as before. Controls appear only on media tabs.
+
+### Permissions
+
+- Adds the "scripting" permission (host access / <all_urls> was already present)
+  so the extension can read and control each tab's media element.
+
+### Implementation
+
+- mediaService (chrome.scripting): reads the primary media element across
+  frames (longest finite duration) and controls that same frame for toggle/seek.
+- mediaStore: per-tab state, optimistic toggle/seek, drag-aware polling.
+- Note: tabs that can't be scripted (chrome:// pages, the Web Store) simply
+  show no controls; pages with several videos may occasionally pick a different
+  element than expected.
+
+## v0.14 — Media tabs: now-playing indicator + mute/unmute
+
+### Added
+
+- Media tabs (playing audio) get an interactive treatment:
+  - an animated equalizer badge on the favicon while playing (a muted badge
+    when muted),
+  - a persistent mute / unmute button on the row (Volume2 / VolumeX) that uses
+    chrome.tabs muted state — works without extra permissions.
+- Tab model now tracks `muted`; tabStore.toggleMuteTab; tabActionService.setTabMuted.
+- Only media tabs show these controls; all other rows are unchanged.
+
+### Notes
+
+- Pause/play, a working seek slider, and live progress are NOT included here:
+  they require the `scripting` permission + host access to read/control each
+  page's <video>/<audio>, which is a separate (and heavier) permission decision.
+
 ## v0.13.2 — Fix duplicate trailing empty block in notes
 
 ### Fixed
