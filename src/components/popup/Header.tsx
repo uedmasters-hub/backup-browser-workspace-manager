@@ -259,14 +259,28 @@ export default function Header() {
   async function toggleFloater() {
     const next = !floaterOn;
     setFloaterOn(next);
-    await chrome.storage.local.set({
-      [STORAGE_KEYS.FLOATER_ENABLED]: next,
-    });
-    if (next) {
-      // Tabs already open before this toggle have no content script yet
-      // (declarative scripts only run on future loads), so inject now.
-      await injectFloaterIntoOpenTabs();
+    if (!next) {
+      await chrome.storage.local.set({
+        [STORAGE_KEYS.FLOATER_ENABLED]: false,
+      });
+      return;
     }
+    // Ensure at least one note exists (seeded here so multiple open tabs don't
+    // each create their own). Position 1e6 clamps to the page's bottom-right.
+    const existing = await chrome.storage.local.get(STORAGE_KEYS.FLOATER_NOTES);
+    const list = Array.isArray(existing[STORAGE_KEYS.FLOATER_NOTES])
+      ? (existing[STORAGE_KEYS.FLOATER_NOTES] as unknown[])
+      : [];
+    const seeded =
+      list.length > 0
+        ? list
+        : [{ id: crypto.randomUUID(), text: "", left: 1e6, top: 1e6 }];
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.FLOATER_NOTES]: seeded,
+      [STORAGE_KEYS.FLOATER_ENABLED]: true,
+    });
+    // Tabs open before this toggle have no content script yet — inject now.
+    await injectFloaterIntoOpenTabs();
   }
 
   // Chrome-level "open-notes" command: opens the popup straight into Notes.

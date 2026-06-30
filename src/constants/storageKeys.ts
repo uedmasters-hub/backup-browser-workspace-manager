@@ -7,4 +7,5 @@ export const STORAGE_KEYS = {
   FLOATER_ENABLED: "floaterEnabled",
   FLOATER_NOTE: "floaterNote",
   FLOATER_POS: "floaterPosition",
+  FLOATER_NOTES: "floaterNotes",
 } as const;

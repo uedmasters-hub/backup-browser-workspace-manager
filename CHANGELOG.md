@@ -1,5 +1,55 @@
 # Changelog
 
+## v0.19.2 — Floating note: on-screen first load + Stack action
+
+### Fixed
+
+- The first floating note opened half off the bottom of the screen. Positioning
+  now reserves the card's height, so it lands fully on-screen near the
+  bottom-right.
+
+### Added
+
+- A "Stack" action in each note's header tidies all open notes into a neat
+  cascade ordered by name (Quick note, Quick note 2, 3 …).
+
+## v0.19.1 — Numbered floating notes
+
+### Changed
+
+- Floating notes are now numbered by position: "Quick note", "Quick note 2",
+  "Quick note 3"… The names stay contiguous as you add/close notes, and the
+  numbering resets to "Quick note" once all are closed or the feature is toggled
+  off. Saving a note to Notes uses its current number as the title.
+
+## v0.19 — Multiple floating notes
+
+### Added
+
+- Pressing ＋ on a floating note now opens a NEW note card on the page (offset
+  from the current one) instead of clearing the current note. You can have as
+  many floating notes as you like, each draggable, editable and saveable
+  independently.
+- Notes are stored as a list (text + position per note) and stay in sync across
+  tabs. Closing a note removes just that card; closing the last one turns the
+  feature off.
+
+### Changed
+
+- The first note is seeded when you enable the feature from the popup, so
+  opening the floater across several tabs no longer creates duplicates.
+
+## v0.18.2 — Cleaner floating note (header actions, no footer)
+
+### Changed
+
+- The floating note's title is now the note's name ("Quick note") and the text
+  you type is saved as the body — the body is no longer doubled up as the title.
+  Long single-paragraph notes keep all their text in the body.
+- Header redesigned to: dot · "Quick note" · New (＋) · Save · Close, and the
+  footer row was removed. Save still flashes a check on success; New clears for
+  another note; the header is the drag handle (icons excluded).
+
 ## v0.18.1 — Fix: quick note saved with empty body
 
 ### Fixed

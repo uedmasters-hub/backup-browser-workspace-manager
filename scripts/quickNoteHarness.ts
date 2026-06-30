@@ -10,53 +10,48 @@ function check(label: string, cond: boolean, detail = "") {
   }
 }
 
-// empty text -> placeholder title + one empty block
+// default title is the note name; body holds the text
+{
+  const n = buildNoteFromText("alkdsla jd");
+  check("title is the note name", n.title === "Quick note");
+  check("body keeps the full text", n.blocks.length === 1 && n.blocks[0].text === "alkdsla jd");
+  check("blocks are text type", n.blocks.every((b) => b.type === "text"));
+  check("has timestamps", n.createdAt > 0 && n.updatedAt > 0);
+}
+
+// empty -> one empty block, still named
 {
   const n = buildNoteFromText("");
   check("empty -> default title", n.title === "Quick note");
   check("empty -> one empty block", n.blocks.length === 1 && n.blocks[0].text === "");
-  check("blocks are text type", n.blocks.every((b) => b.type === "text"));
-  check("has timestamps", n.createdAt > 0 && n.updatedAt > 0);
-  check("unique ids", n.id !== n.blocks[0].id);
 }
 
-// single line -> title only, one empty body block
+// multi-line body kept line by line (no line treated as title)
 {
-  const n = buildNoteFromText("Buy milk");
-  check("single line title", n.title === "Buy milk");
-  check("single line body keeps text", n.blocks.length === 1 && n.blocks[0].text === "Buy milk");
-}
-
-// multi-line -> first non-empty is title, rest are body blocks
-{
-  const n = buildNoteFromText("Groceries\nmilk\neggs");
-  check("multiline title", n.title === "Groceries");
+  const n = buildNoteFromText("first line\nsecond line\nthird");
+  check("multiline title stays the name", n.title === "Quick note");
   check(
-    "multiline body keeps all lines",
+    "every line kept in body",
     n.blocks.length === 3 &&
-      n.blocks[0].text === "Groceries" &&
-      n.blocks[1].text === "milk" &&
-      n.blocks[2].text === "eggs"
+      n.blocks[0].text === "first line" &&
+      n.blocks[1].text === "second line" &&
+      n.blocks[2].text === "third"
   );
 }
 
-// leading blank lines skipped for title
+// long single paragraph is NOT lost to the title
 {
-  const n = buildNoteFromText("\n\n  Real Title\nbody");
-  check("leading blanks skipped for title", n.title === "Real Title");
-  check(
-    "body trims leading blanks and keeps content",
-    n.blocks.length === 2 &&
-      n.blocks[0].text.trim() === "Real Title" &&
-      n.blocks[1].text === "body"
-  );
-}
-
-// long title truncated to 100
-{
-  const long = "x".repeat(200);
+  const long = "x".repeat(300);
   const n = buildNoteFromText(long);
-  check("title truncated to 80", n.title.length === 80);
+  check("long paragraph stays in body", n.blocks[0].text === long);
+  check("title not overrun by body", n.title === "Quick note");
+}
+
+// optional custom title supported
+{
+  const n = buildNoteFromText("body here", "My title");
+  check("custom title used", n.title === "My title");
+  check("custom title body intact", n.blocks[0].text === "body here");
 }
 
 console.log(`\nRESULT: ${passed} passed, ${failed} failed`);

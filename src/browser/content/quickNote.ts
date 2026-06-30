@@ -8,24 +8,19 @@ export interface StoredNote {
   updatedAt: number;
 }
 
-/** Turn the quick-note text into a Note: the body keeps the full text; the
- * title is the first non-empty line (leading blank lines are trimmed). */
-export function buildNoteFromText(text: string): StoredNote {
+/** Build a Note whose title is the note's name and whose body holds the full
+ * quick-note text (one text block per line). */
+export function buildNoteFromText(
+  text: string,
+  title = "Quick note"
+): StoredNote {
   const lines = text.replace(/\r\n/g, "\n").split("\n");
-  const firstIdx = lines.findIndex((l) => l.trim().length > 0);
+  const bodyLines = text.trim().length > 0 ? lines : [""];
   const now = Date.now();
-
-  let title = "Quick note";
-  let bodyLines: string[] = [""];
-  if (firstIdx !== -1) {
-    title = lines[firstIdx].trim().slice(0, 80);
-    // Keep every line from the first real content onward in the body.
-    bodyLines = lines.slice(firstIdx);
-  }
 
   return {
     id: crypto.randomUUID(),
-    title,
+    title: (title.trim() || "Quick note").slice(0, 100),
     blocks: bodyLines.map((line) => ({
       id: crypto.randomUUID(),
       type: "text",
