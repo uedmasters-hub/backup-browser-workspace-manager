@@ -20,4 +20,7 @@ export interface WorkspaceWindow {
   updatedAt: string;
 
   chromeWindowId?: number;
+
+  /** Private (Incognito) window. Shown only when the extension is allowed there. */
+  incognito: boolean;
 }

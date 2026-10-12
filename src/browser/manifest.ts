@@ -9,6 +9,10 @@ export default defineManifest({
 
   description: "Manage browser windows and tabs.",
 
+  // One shared extension instance that also sees private windows — once the
+  // user turns on "Allow in Private" / "Allow in Incognito" for it.
+  incognito: "spanning",
+
   permissions: [
     "tabs",
     "tabGroups",

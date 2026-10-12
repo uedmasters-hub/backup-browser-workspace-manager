@@ -10,6 +10,7 @@ import {
   Search,
   StickyNote,
   Upload,
+  VenetianMask,
   X,
 } from "lucide-react";
 
@@ -19,6 +20,10 @@ import { useTabStore } from "../../stores/tabStore";
 import { STORAGE_KEYS } from "../../constants/storageKeys";
 
 import { useSearchStore } from "../../stores/searchStore";
+import {
+  PRIVATE_LABEL,
+  openExtensionSettings,
+} from "../../browser/services/incognitoService";
 import {
   exportBackup,
   importBackup,
@@ -110,6 +115,7 @@ export default function Header() {
   const [exporting, setExporting] = useState(false);
   const [busy, setBusy] = useState<null | "exported" | "importing">(null);
   const [floaterOn, setFloaterOn] = useState(false);
+  const incognitoAllowed = useWindowStore((state) => state.incognitoAllowed);
   const [importError, setImportError] = useState<string | null>(null);
 
   const showSearch = query.trim().length > 0 || focused;
@@ -507,6 +513,34 @@ export default function Header() {
               floaterOn ? "left-[15px]" : "left-0.5",
             ].join(" ")}
           />
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          setMenuOpen(false);
+          void openExtensionSettings();
+        }}
+        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-neutral-100"
+      >
+        <span
+          className={[
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+            incognitoAllowed
+              ? "bg-neutral-900 text-white"
+              : "bg-neutral-100 text-neutral-700",
+          ].join(" ")}
+        >
+          <VenetianMask size={17} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-neutral-800">
+            {PRIVATE_LABEL.window} windows
+          </span>
+          <span className="block truncate text-[11px] text-neutral-400">
+            {incognitoAllowed ? "On · shown here" : "Off · click to allow"}
+          </span>
         </span>
       </button>
 

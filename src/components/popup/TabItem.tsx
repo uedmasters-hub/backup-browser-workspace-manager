@@ -10,6 +10,8 @@ type Props = {
   title: string;
   favicon?: string;
   favorite?: boolean;
+  /** False for private-window tabs: favorites are stored, private URLs aren't. */
+  canFavorite?: boolean;
   pinned?: boolean;
   active?: boolean;
   audible?: boolean;
@@ -23,6 +25,7 @@ export default function TabItem({
   title,
   favicon,
   favorite = false,
+  canFavorite = true,
   pinned = false,
   active = false,
   audible = false,
@@ -209,27 +212,29 @@ export default function TabItem({
               {age}
             </span>
 
-            <button
-              type="button"
-              aria-label={
-                favorite
-                  ? `Remove ${title} from favorites`
-                  : `Add ${title} to favorites`
-              }
-              title={favorite ? "Remove from favorites" : "Add to favorites"}
-              onClick={(event) => {
-                event.stopPropagation();
-                void toggleFavorite(id);
-              }}
-              className={[
-                "h-8 w-8 items-center justify-center rounded-lg transition-colors",
-                favorite
-                  ? "flex text-amber-400 hover:bg-neutral-100 hover:text-amber-500"
-                  : "hidden text-neutral-300 hover:bg-neutral-100 hover:text-neutral-600 group-hover:flex",
-              ].join(" ")}
-            >
-              <Star size={15} fill={favorite ? "currentColor" : "none"} />
-            </button>
+            {canFavorite && (
+              <button
+                type="button"
+                aria-label={
+                  favorite
+                    ? `Remove ${title} from favorites`
+                    : `Add ${title} to favorites`
+                }
+                title={favorite ? "Remove from favorites" : "Add to favorites"}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void toggleFavorite(id);
+                }}
+                className={[
+                  "h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                  favorite
+                    ? "flex text-amber-400 hover:bg-neutral-100 hover:text-amber-500"
+                    : "hidden text-neutral-300 hover:bg-neutral-100 hover:text-neutral-600 group-hover:flex",
+                ].join(" ")}
+              >
+                <Star size={15} fill={favorite ? "currentColor" : "none"} />
+              </button>
+            )}
 
             <button
               type="button"

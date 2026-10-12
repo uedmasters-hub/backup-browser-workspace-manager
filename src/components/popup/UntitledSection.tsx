@@ -119,6 +119,7 @@ export default function UntitledSection() {
                 title={tab.title}
                 favicon={tab.favicon}
                 favorite={tab.favorite}
+                canFavorite={!tab.incognito}
                 pinned={tab.pinned}
                 active={tab.active}
               audible={tab.audible}

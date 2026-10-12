@@ -73,7 +73,10 @@ export async function collectBackup(): Promise<Backup> {
     (settings[STORAGE_KEYS.WORKSPACES] as WorkspaceMetadata[] | undefined) ??
     [];
 
-  const chromeWindows = await chrome.windows.getAll({ populate: true });
+  // Private (Incognito) windows are never written to a backup file.
+  const chromeWindows = (
+    await chrome.windows.getAll({ populate: true })
+  ).filter((win) => !win.incognito);
 
   const groupsById = new Map<number, BackupGroup>();
   if (chrome.tabGroups?.query) {

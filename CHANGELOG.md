@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased — Private (Incognito) windows
+
+### Added
+
+- Private / Incognito windows now appear as window cards, with a mask badge and
+  a cool-grey default color. They're numbered on their own ("Private 1" in
+  Brave, "Incognito 1" in Chrome), so opening one never renumbers your other
+  windows. Select, rename, recolor, focus, close, pin, group and move tabs work
+  as for any window.
+- Browsers hide private windows from extensions until "Allow in Private" /
+  "Allow in Incognito" is turned on. When it's off, a dismissible card under
+  the windows explains this and opens the extension's settings page in one
+  click. The header menu has a permanent "Private windows" item showing On/Off.
+- Manifest declares `incognito: "spanning"` (one shared instance).
+
+### Privacy
+
+- Private tabs can't be favorited (favorites are stored on disk).
+- Exported backups skip private windows entirely. Backup harness: 2 new checks.
+- Move dialog only offers windows of the same kind — the browser can't move
+  tabs between private and normal windows.
+
 ## Unreleased — Clickable links in notes
 
 ### Added

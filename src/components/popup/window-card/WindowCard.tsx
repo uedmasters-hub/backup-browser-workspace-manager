@@ -88,6 +88,7 @@ export default function WindowCard({
         <WindowCardHeader
           title={rename.value}
           emoji={window.emoji}
+          incognito={window.incognito}
           renaming={rename.editing}
           saving={rename.saving}
           isMenuOpen={handlers.isMenuOpen}

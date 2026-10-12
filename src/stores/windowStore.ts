@@ -9,6 +9,7 @@ import {
 } from "../browser/services/windowService";
 
 import { mapChromeWindow } from "../browser/services/windowMapper";
+import { isIncognitoAllowed } from "../browser/services/incognitoService";
 
 import {
   getWorkspace,
@@ -20,6 +21,8 @@ import {
 interface WindowState {
   windows: WorkspaceWindow[];
   selectedWindowId?: number;
+  /** Whether the user let the extension see private windows. null = not checked yet. */
+  incognitoAllowed: boolean | null;
 }
 
 interface WindowActions {
@@ -138,22 +141,30 @@ export const useWindowStore =
       selectedWindowId:
         undefined,
 
+      incognitoAllowed: null,
+
       setWindows: (windows) =>
         set({ windows }),
 
       refreshWindows:
         async () => {
-          const chromeWindows =
-            await getAllWindows();
+          const [chromeWindows, metadata, incognitoAllowed] =
+            await Promise.all([
+              getAllWindows(),
+              getWorkspaces(),
+              isIncognitoAllowed(),
+            ]);
 
-          const metadata =
-            await getWorkspaces();
+          // Number normal and private windows separately.
+          let normalIndex = 0;
+          let privateIndex = 0;
 
           const windows = chromeWindows.map(
-            (
-              chromeWindow,
-              index
-            ) => {
+            (chromeWindow) => {
+              const index = chromeWindow.incognito
+                ? privateIndex++
+                : normalIndex++;
+
               const workspace =
                 metadata.find(
                   (item) =>
@@ -169,7 +180,7 @@ export const useWindowStore =
             }
           );
 
-          set({ windows });
+          set({ windows, incognitoAllowed });
         },
 
       selectWindow:

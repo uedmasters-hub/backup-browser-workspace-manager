@@ -83,7 +83,7 @@ function check(label: string, cond: boolean, detail = "") {
 function tab(partial: Partial<WorkspaceTab>): WorkspaceTab {
   return {
     id: 0, windowId: 1, index: 0, groupId: -1, title: "", url: "",
-    favorite: false, pinned: false, active: false, audible: false, discarded: false,
+    favorite: false, pinned: false, active: false, audible: false, discarded: false, incognito: false,
     ...partial,
   };
 }

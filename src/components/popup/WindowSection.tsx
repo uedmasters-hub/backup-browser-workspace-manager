@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import WindowGrid from "./windows/WindowGrid";
 import ArchivedSection from "./ArchivedSection";
 import UntitledSection from "./UntitledSection";
+import PrivateWindowsHint from "./PrivateWindowsHint";
 
 import { useWindowStore } from "../../stores/windowStore";
 import { useTabStore } from "../../stores/tabStore";
@@ -60,6 +61,8 @@ export default function WindowSection() {
   return (
     <>
       <WindowGrid windows={activeWindows} />
+
+      <PrivateWindowsHint />
 
       <ArchivedSection
         windows={archivedWindows}

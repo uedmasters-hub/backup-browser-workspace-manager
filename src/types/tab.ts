@@ -25,6 +25,9 @@ export interface WorkspaceTab {
 
   discarded: boolean;
 
+  /** Tab lives in a private (Incognito) window. */
+  incognito: boolean;
+
   lastAccessed?: number;
 }
 

@@ -8,4 +8,5 @@ export const STORAGE_KEYS = {
   FLOATER_NOTE: "floaterNote",
   FLOATER_POS: "floaterPosition",
   FLOATER_NOTES: "floaterNotes",
+  PRIVATE_HINT_DISMISSED: "privateWindowsHintDismissed",
 } as const;

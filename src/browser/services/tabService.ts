@@ -22,6 +22,7 @@ function mapChromeTab(
     audible: tab.audible ?? false,
     muted: tab.mutedInfo?.muted ?? false,
     discarded: tab.discarded ?? false,
+    incognito: tab.incognito,
     lastAccessed: tab.lastAccessed,
   };
 }

@@ -223,7 +223,8 @@ export const useTabStore = create<TabStore>((set, get) => ({
       (item) => item.id === tabId
     );
 
-    if (!tab?.url) {
+    // Favorites are saved to disk — never record a private tab's URL.
+    if (!tab?.url || tab.incognito) {
       return;
     }
 

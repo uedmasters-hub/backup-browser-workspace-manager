@@ -41,11 +41,20 @@ export default function MoveTabsDialog() {
     const workspaces = useMemo(() => {
       const search = query.toLowerCase();
 
+      const source = windows.find(
+        (window) => window.chromeWindowId === selectedWindowId
+      );
+
       return windows.filter((window) => {
         if (
           window.chromeWindowId ===
           selectedWindowId
         ) {
+          return false;
+        }
+
+        // Tabs can't cross between private and normal windows.
+        if (source && window.incognito !== source.incognito) {
           return false;
         }
 

@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated:** June 28, 2026
+**Last updated:** October 13, 2026
 
 ## Browser Workspace Manager Privacy Policy
 
@@ -57,6 +57,16 @@ The `storage` permission is used to store extension preferences locally, includi
 * User interface settings
 
 This information remains on the user's device and is not transmitted to external servers.
+
+### Private (Incognito) windows
+
+Private windows are only visible to the extension if you turn on "Allow in Private" (Brave) or "Allow in Incognito" (Chrome) for it in your browser's extension settings. It is off by default and you can turn it off at any time.
+
+When it is on, private windows and their tabs are shown and managed in the popup while they are open, but:
+
+* Private tabs cannot be added to favorites, so their URLs are never saved.
+* Private windows and their tabs are never included in exported backups.
+* A custom name, color or emoji you give a private window is saved locally like any other window's; no tab data is stored with it.
 
 ## Data Processing
 

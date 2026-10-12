@@ -56,6 +56,21 @@ let store: Record<string, unknown> = {
           },
         ],
       },
+      {
+        id: 2,
+        incognito: true,
+        focused: false,
+        tabs: [
+          {
+            id: 21,
+            title: "Secret",
+            url: "https://private.example/",
+            pinned: false,
+            groupId: -1,
+            index: 0,
+          },
+        ],
+      },
     ],
   },
   tabGroups: {
@@ -113,7 +128,11 @@ async function run() {
     backup.settings.tabSortMode === "favorites" &&
       Array.isArray(backup.settings.workspaceNotes)
   );
-  check("one window snapshot", backup.windows.length === 1);
+  check("one window snapshot (private window skipped)", backup.windows.length === 1);
+  check(
+    "no private tab URL in the backup",
+    !JSON.stringify(backup).includes("private.example")
+  );
   check("two tabs captured", backup.windows[0].tabs.length === 2);
   check(
     "workspace name + archive mapped",

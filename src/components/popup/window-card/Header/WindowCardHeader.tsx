@@ -2,7 +2,10 @@ import type { MouseEvent } from "react";
 
 import {
   MoreVertical,
+  VenetianMask,
 } from "lucide-react";
+
+import { PRIVATE_LABEL } from "../../../../browser/services/incognitoService";
 
 import RenameInput from "./RenameInput";
 
@@ -10,6 +13,8 @@ type Props = {
   title: string;
 
   emoji?: string;
+
+  incognito?: boolean;
 
   renaming: boolean;
 
@@ -35,6 +40,7 @@ type Props = {
 export default function WindowCardHeader({
   title,
   emoji,
+  incognito = false,
   renaming,
   saving,
   isMenuOpen,
@@ -53,7 +59,22 @@ export default function WindowCardHeader({
           onStartRename();
         }}
       >
-        <div className="flex items-center gap-2">
+        <div
+          className={[
+            "flex items-center",
+            incognito ? "gap-1.5" : "gap-2",
+          ].join(" ")}
+        >
+          {incognito && (
+            <span
+              title={`${PRIVATE_LABEL.window} window`}
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-white"
+            >
+              <VenetianMask size={12} strokeWidth={2.5} />
+              <span className="sr-only">{PRIVATE_LABEL.window} window</span>
+            </span>
+          )}
+
           {emoji && (
             <span className="text-lg leading-none">
               {emoji}
