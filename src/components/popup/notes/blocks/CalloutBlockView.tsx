@@ -1,7 +1,7 @@
 import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
 
 import BlockShell from "./BlockShell";
-import AutoTextarea from "./AutoTextarea";
+import LinkifiedTextarea from "./LinkifiedTextarea";
 import { useCopy } from "../useCopy";
 import { useEffect } from "react";
 
@@ -73,7 +73,7 @@ export default function CalloutBlockView({
         >
           <Icon size={16} />
         </button>
-        <AutoTextarea
+        <LinkifiedTextarea
           value={block.text}
           onChange={(text) => updateBlock(block.id, { text })}
           placeholder="Callout…"

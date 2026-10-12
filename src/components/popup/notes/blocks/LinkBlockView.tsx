@@ -4,6 +4,7 @@ import { ExternalLink, Globe } from "lucide-react";
 import BlockShell from "./BlockShell";
 import { useCopy } from "../useCopy";
 import { useNotesStore } from "../../../../stores/notesStore";
+import { openLinkInNewTab } from "../../../../browser/services/navigationService";
 import type { LinkBlock } from "../../../../types/notes";
 
 function hostOf(url: string): string {
@@ -33,7 +34,7 @@ export default function LinkBlockView({ block }: { block: LinkBlock }) {
 
   function open() {
     if (ready) {
-      void chrome.tabs.create({ url: block.url, active: true });
+      void openLinkInNewTab(block.url);
     }
   }
 

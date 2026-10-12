@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased — Clickable links in notes
+
+### Added
+
+- URLs in Text and Callout blocks now render as real links (indigo, underlined)
+  instead of plain text. `http://`, `https://` and `www.` addresses are
+  detected; trailing punctuation and wrapping brackets are left out.
+- Hovering a link highlights it and reveals an "open externally" arrow. The
+  arrow overlays the text, so nothing shifts or reflows.
+- Clicking a link opens it in a new tab right next to the current one.
+  Ctrl/⌘-click or middle-click opens it in the background so the popup stays
+  open. Links are keyboard-reachable (Tab, then Enter).
+- Clicking anywhere else in the block switches to editing with the caret where
+  you clicked; links render again when you leave the block.
+- `scripts/linkifyHarness.ts` — 13 checks for URL detection.
+
+### Changed
+
+- Link blocks open through `navigationService` instead of calling
+  `chrome.tabs.create` from the component, and now also open next to the
+  current tab.
+- `AutoTextarea` is replaced by `LinkifiedTextarea`.
+
 ## v0.19.2 — Floating note: on-screen first load + Stack action
 
 ### Fixed

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import BlockShell from "./BlockShell";
+import LinkifiedTextarea from "./LinkifiedTextarea";
 import SlashMenu from "../SlashMenu";
 import { useCopy } from "../useCopy";
 import { filterBlockTypes } from "../blockTypes";
@@ -28,14 +29,6 @@ export default function TextBlockView({ block }: { block: TextBlock }) {
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
-
-  // grow to fit
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, [block.text]);
 
   // close the slash menu if the list scrolls (keeps it anchored correctly)
   useEffect(() => {
@@ -124,15 +117,14 @@ export default function TextBlockView({ block }: { block: TextBlock }) {
   return (
     <BlockShell id={block.id} onCopy={() => copy(block.text)} copied={copied}>
       <div className="relative">
-        <textarea
-          ref={ref}
-          rows={1}
+        <LinkifiedTextarea
+          textareaRef={ref}
           value={block.text}
           placeholder="Write something, or press “/” for blocks…"
-          onChange={(e) => onChange(e.target.value)}
+          onChange={onChange}
           onKeyDown={onKeyDown}
           onBlur={() => setTimeout(() => setSlashQuery(null), 120)}
-          className="w-full resize-none bg-transparent px-2 py-1.5 text-[15px] leading-relaxed text-neutral-800 outline-none placeholder:text-neutral-300"
+          className="px-2 py-1.5 text-[15px] leading-relaxed text-neutral-800"
         />
         {slashQuery !== null && (
           <SlashMenu
