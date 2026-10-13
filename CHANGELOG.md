@@ -1,28 +1,6 @@
 # Changelog
 
-## v1.3.1 — 2026-10-13
-
-### Fixed
-
-- App dock: the first icon was cut off on the left when the popup opened (row
-  snapping + edge fade). The row is now inset to the cards' width, starts at
-  the first app, and spaces tiles evenly so a whole number of icons fits — no
-  half-visible icons at rest. Badges and the ⋯ button sit inside each tile.
-- App dock icons were blurry (16px favicons stretched on Retina screens). Icons
-  now come from the sharpest source available: the page's SVG / Apple touch /
-  largest declared icon (read from open tabs, kept in memory), the site's
-  /apple-touch-icon.png, then the favicon. Tiny favicons are drawn smaller
-  instead of stretched, and icons fade in once loaded.
-
-### Changed
-
-- App dock: scroll arrows and edge fades removed. Scroll with a trackpad swipe,
-  the mouse wheel (scrolls the row sideways while over it, without stealing a
-  page scroll already in progress), or click-and-drag (a drag never opens an
-  app).
-- App dock hover: no lift or shadow; the icon grows slightly instead.
-
-## v1.3.0 — 2026-10-13
+## v1.2.2 — 2026-10-13
 
 ### Added
 
@@ -34,7 +12,15 @@
   - A dot under an icon means it's open; a number shows how many windows.
   - Right-click (or ⋯ on hover, or the context-menu key): open in a new tab or
     a fresh window regardless, switch to any of its windows, or hide it.
-  - Arrow buttons and edge fades appear when the row overflows.
+  - Lines up with the window cards and spaces icons evenly so only whole icons
+    show at rest.
+  - Scroll with a trackpad swipe, the mouse wheel (scrolls the row sideways
+    while over it, without stealing a page scroll already in progress), or
+    click-and-drag (a drag never opens an app).
+  - Sharp icons: the page's SVG / Apple touch / largest declared icon (read
+    from open tabs, kept in memory), the site's /apple-touch-icon.png, then the
+    favicon; tiny favicons are drawn smaller instead of stretched.
+  - Hover: the icon grows slightly.
   - "App dock" switch in the ☰ menu, plus "Show N hidden apps again".
 - No new permissions — uses the existing history permission. Visit data stays
   in memory; only hidden apps are saved. Private tabs never count.
