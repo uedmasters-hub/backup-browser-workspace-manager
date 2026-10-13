@@ -1,9 +1,12 @@
+import { useRef } from "react";
 import { Check, Pause, Pin, Play, Star, Volume2, VolumeX, X } from "lucide-react";
 
 import { useTabStore } from "../../stores/tabStore";
 import { useMediaStore } from "../../stores/mediaStore";
 import MediaSeek from "./MediaSeek";
 import { formatTabAge } from "./tabFormat";
+import RowSkeleton from "./reveal/RowSkeleton";
+import { useScrollReveal } from "./reveal/useScrollReveal";
 
 type Props = {
   id: number;
@@ -55,8 +58,12 @@ export default function TabItem({
   const effectivePlaying = hasControls ? Boolean(media?.playing) : playing;
   const showSeek = hasControls && (media?.duration ?? 0) > 0;
 
+  const rowRef = useRef<HTMLDivElement>(null);
+  const reveal = useScrollReveal(rowRef);
+
   return (
     <div
+      ref={rowRef}
       onClick={() => {
         if (selectionMode) {
           toggleTabSelection(id);
@@ -71,6 +78,8 @@ export default function TabItem({
           : "mx-5 mb-3 shadow-sm",
       ].join(" ")}
     >
+      <RowSkeleton phase={reveal} seed={id} />
+
       {active && !selectionMode && (
         <span
           aria-hidden

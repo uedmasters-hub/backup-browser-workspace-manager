@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased — Skeleton reveal on scroll (tab list)
+
+### Added
+
+- Tab rows that scroll into view show a shimmering skeleton (favicon · title ·
+  age) for ~¼ s, then crossfade to the real row. Rows arriving together reveal
+  top to bottom with a short stagger (whole batch done in about half a second).
+- Rows already on screen when the popup opens appear instantly; each row
+  reveals once, so scrolling back up never re-skeletons. Respects
+  "reduce motion".
+- Tuning and an on/off switch live in `src/constants/scrollSkeleton.ts`.
+
 ## Unreleased — Note block toolbar only on written content
 
 ### Fixed
