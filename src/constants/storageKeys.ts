@@ -11,4 +11,6 @@ export const STORAGE_KEYS = {
   PRIVATE_HINT_DISMISSED: "privateWindowsHintDismissed",
   UPDATE_NOTICE: "updateNotice",
   LAST_UPDATE_CHECK: "lastUpdateCheck",
+  APP_DOCK_ENABLED: "appDockEnabled",
+  APP_DOCK_HIDDEN: "appDockHidden",
 } as const;

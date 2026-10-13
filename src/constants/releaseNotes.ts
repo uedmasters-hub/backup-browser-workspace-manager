@@ -4,6 +4,12 @@
  * Keep each line short and user-facing.
  */
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "1.3.0": [
+    "New app dock: your most-visited apps as icons under the window cards.",
+    "Click an app to jump to it if it's open, or open it in a new window.",
+    "Open in several windows? Pick which one. Right-click for new tab/window.",
+    "Turn the dock on or off from the ☰ menu.",
+  ],
   "1.2.1": [
     "You'll now see what's new after every update — like this.",
     "When an update is waiting, a banner lets you install it with one click.",

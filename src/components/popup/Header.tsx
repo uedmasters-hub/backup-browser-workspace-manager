@@ -9,6 +9,7 @@ import {
   PictureInPicture2,
   Search,
   StickyNote,
+  LayoutGrid,
   Upload,
   VenetianMask,
   X,
@@ -20,6 +21,7 @@ import { useTabStore } from "../../stores/tabStore";
 import { STORAGE_KEYS } from "../../constants/storageKeys";
 
 import { useSearchStore } from "../../stores/searchStore";
+import { useAppDockStore } from "../../stores/appDockStore";
 import {
   PRIVATE_LABEL,
   openExtensionSettings,
@@ -116,6 +118,10 @@ export default function Header() {
   const [busy, setBusy] = useState<null | "exported" | "importing">(null);
   const [floaterOn, setFloaterOn] = useState(false);
   const incognitoAllowed = useWindowStore((state) => state.incognitoAllowed);
+  const dockOn = useAppDockStore((state) => state.enabled);
+  const dockHidden = useAppDockStore((state) => state.hidden.length);
+  const setDockOn = useAppDockStore((state) => state.setEnabled);
+  const restoreDockApps = useAppDockStore((state) => state.restoreHidden);
   const [importError, setImportError] = useState<string | null>(null);
 
   const showSearch = query.trim().length > 0 || focused;
@@ -515,6 +521,55 @@ export default function Header() {
           />
         </span>
       </button>
+
+      <button
+        type="button"
+        onClick={() => void setDockOn(!dockOn)}
+        role="menuitemcheckbox"
+        aria-checked={dockOn}
+        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-neutral-100"
+      >
+        <span
+          className={[
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+            dockOn ? "bg-teal-50 text-teal-700" : "bg-neutral-100 text-neutral-700",
+          ].join(" ")}
+        >
+          <LayoutGrid size={17} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-neutral-800">
+            App dock
+          </span>
+          <span className="block truncate text-[11px] text-neutral-400">
+            Your most-visited apps under the cards
+          </span>
+        </span>
+        <span
+          aria-hidden
+          className={[
+            "relative h-[18px] w-8 shrink-0 rounded-full transition-colors",
+            dockOn ? "bg-teal-600" : "bg-neutral-200",
+          ].join(" ")}
+        >
+          <span
+            className={[
+              "absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-all",
+              dockOn ? "left-[15px]" : "left-0.5",
+            ].join(" ")}
+          />
+        </span>
+      </button>
+
+      {dockOn && dockHidden > 0 && (
+        <button
+          type="button"
+          onClick={() => void restoreDockApps()}
+          className="mb-1 ml-[60px] text-[11px] font-medium text-teal-700 hover:text-teal-800"
+        >
+          Show {dockHidden} hidden app{dockHidden > 1 ? "s" : ""} again
+        </button>
+      )}
 
       <button
         type="button"

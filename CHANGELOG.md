@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.3.0 — 2026-10-13
+
+### Added
+
+- **App dock.** A horizontally scrolling row of your most-visited apps (icons
+  only) right under the window cards, ranked from the last 30 days of visits
+  (typed visits count extra) plus what's open now.
+  - Click: not open → opens in a new window; open in one window → switches to
+    its tab there; open in two or more → choose the window from a list.
+  - A dot under an icon means it's open; a number shows how many windows.
+  - Right-click (or ⋯ on hover, or the context-menu key): open in a new tab or
+    a fresh window regardless, switch to any of its windows, or hide it.
+  - Arrow buttons and edge fades appear when the row overflows.
+  - "App dock" switch in the ☰ menu, plus "Show N hidden apps again".
+- No new permissions — uses the existing history permission. Visit data stays
+  in memory; only hidden apps are saved. Private tabs never count.
+- New harness: app dock ranking & window matching (20 checks).
+
+### Changed
+
+- System messages — update notices, the Private/Incognito hint and others —
+  now appear after the window cards and the app dock, not above the cards.
+
 ## v1.2.1 — 2026-10-13
 
 Browsers install extension updates silently. Now the extension tells people.

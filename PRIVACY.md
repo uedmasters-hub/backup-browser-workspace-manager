@@ -58,6 +58,15 @@ The `storage` permission is used to store extension preferences locally, includi
 
 This information remains on the user's device and is not transmitted to external servers.
 
+### App dock
+
+The app dock shows your most-visited sites as icons. It is built from your browsing history (the existing `history` permission) and your open tabs:
+
+* Visit counts are read on your device and cached **in memory only** for a few minutes; nothing about the sites you visit is written to disk or sent anywhere.
+* Icons come from your open tabs (remembered in memory), otherwise the site's own `/favicon.ico` is loaded from that site.
+* Private (Incognito) tabs are never counted and never shown.
+* The only thing saved is the list of apps you chose to hide. The dock can be turned off from the ☰ menu.
+
 ### Tab previews
 
 Hovering a tab in the popup shows a preview. To make this possible:
