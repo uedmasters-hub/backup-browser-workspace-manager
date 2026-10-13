@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased — Smart tab preview on hover
+
+### Added
+
+- Hovering a tab row opens a preview card after a short pause (~0.45 s):
+  a snapshot of the page as you last saw it (with its age), or the page's own
+  share image, then title, site, description and address, plus chips for
+  group, Pinned, Playing/Muted, Asleep and Private. Pages with nothing visual
+  get a compact card.
+- Moving to the next row switches the preview almost instantly. Scrolling,
+  clicking or typing closes it; it doesn't pop up while rows slide under a
+  still pointer.
+- The card is look-only: clicking a row still opens the tab and × still closes
+  it, exactly as before.
+- Snapshots are taken when a tab is shown (and when the popup opens), kept in
+  memory only, capped at 80, and never taken for private tabs.
+- Settings and an on/off switch live in `src/constants/tabPreview.ts`.
+
 ## Unreleased — Skeleton reveal on scroll (tab list)
 
 ### Added

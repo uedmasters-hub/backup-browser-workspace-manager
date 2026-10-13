@@ -7,6 +7,7 @@ import MediaSeek from "./MediaSeek";
 import { formatTabAge } from "./tabFormat";
 import RowSkeleton from "./reveal/RowSkeleton";
 import { useScrollReveal } from "./reveal/useScrollReveal";
+import { useTabPreviewTrigger } from "./preview/useTabPreviewTrigger";
 
 type Props = {
   id: number;
@@ -60,10 +61,17 @@ export default function TabItem({
 
   const rowRef = useRef<HTMLDivElement>(null);
   const reveal = useScrollReveal(rowRef);
+  const preview = useTabPreviewTrigger(
+    id,
+    rowRef,
+    selectionMode || reveal !== "content"
+  );
 
   return (
     <div
       ref={rowRef}
+      onMouseMove={preview.onMouseMove}
+      onMouseLeave={preview.onMouseLeave}
       onClick={() => {
         if (selectionMode) {
           toggleTabSelection(id);

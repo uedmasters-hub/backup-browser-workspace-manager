@@ -14,6 +14,8 @@ import {
 import ProviderRegistry from "../search/providers/ProviderRegistry";
 
 import { registerWindowEvents } from "../browser/events/windowEvents";
+import { getCurrentWindow } from "../browser/services/windowService";
+import { captureWindowSnapshot } from "../browser/services/tabPreviewService";
 
 import { useSearchStore } from "../stores/searchStore";
 import { useUIStore } from "../stores/uiStore";
@@ -21,6 +23,7 @@ import { useTabStore } from "../stores/tabStore";
 import { useMediaStore } from "../stores/mediaStore";
 
 import NotesPanel from "../components/popup/notes/NotesPanel";
+import TabPreviewCard from "../components/popup/preview/TabPreviewCard";
 
 export default function App() {
   const query = useSearchStore((state) => state.query);
@@ -31,6 +34,13 @@ export default function App() {
 
   useEffect(() => {
     ProviderRegistry.initialize();
+
+    // Refresh the hover-preview snapshot of the page behind the popup.
+    if (typeof chrome !== "undefined" && chrome.tabs) {
+      void getCurrentWindow()
+        .then((win) => (win.id !== undefined ? captureWindowSnapshot(win.id) : undefined))
+        .catch(() => undefined);
+    }
 
     // Keep the window list live while the popup is open.
     if (typeof chrome !== "undefined" && chrome.windows) {
@@ -78,6 +88,8 @@ export default function App() {
 
         {notesOpen && <NotesPanel />}
       </main>
+
+      {!notesOpen && <TabPreviewCard />}
 
       <MoveTabsDialog />
 

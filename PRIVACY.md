@@ -58,6 +58,15 @@ The `storage` permission is used to store extension preferences locally, includi
 
 This information remains on the user's device and is not transmitted to external servers.
 
+### Tab previews
+
+Hovering a tab in the popup shows a preview. To make this possible:
+
+* When a tab is shown on screen, the extension takes a small snapshot of what's visible and keeps it **in memory only** (`chrome.storage.session`). Snapshots are cleared when the browser closes, are never written to disk, never included in backups, and never sent anywhere. Private (Incognito) tabs are never captured.
+* While you hover, the extension reads the page's own description and share image from its `<meta>` tags. The share image is loaded from the site you already have open.
+
+Previews can be turned off by setting `enabled: false` in `src/constants/tabPreview.ts`.
+
 ### Private (Incognito) windows
 
 Private windows are only visible to the extension if you turn on "Allow in Private" (Brave) or "Allow in Incognito" (Chrome) for it in your browser's extension settings. It is off by default and you can turn it off at any time.
