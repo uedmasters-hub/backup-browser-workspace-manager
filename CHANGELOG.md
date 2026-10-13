@@ -1,8 +1,12 @@
 # Changelog
 
-## Unreleased — Smart tab preview on hover
+## v1.2.0 — 2026-10-13
 
-### Added
+Highlights: smart tab previews on hover, Private/Incognito window support, clickable links in notes, skeleton reveal on scroll, cleaner note blocks. No new permissions.
+
+### Smart tab preview on hover
+
+#### Added
 
 - Hovering a tab row opens a preview card after a short pause (~0.45 s):
   a snapshot of the page as you last saw it (with its age), or the page's own
@@ -18,9 +22,9 @@
   memory only, capped at 80, and never taken for private tabs.
 - Settings and an on/off switch live in `src/constants/tabPreview.ts`.
 
-## Unreleased — Skeleton reveal on scroll (tab list)
+### Skeleton reveal on scroll (tab list)
 
-### Added
+#### Added
 
 - Tab rows that scroll into view show a shimmering skeleton (favicon · title ·
   age) for ~¼ s, then crossfade to the real row. Rows arriving together reveal
@@ -30,23 +34,23 @@
   "reduce motion".
 - Tuning and an on/off switch live in `src/constants/scrollSkeleton.ts`.
 
-## Unreleased — Note block toolbar only on written content
+### Note block toolbar only on written content
 
-### Fixed
+#### Fixed
 
 - The hover toolbar (copy / move / delete) appeared on empty placeholder
   blocks such as the "Write something…" line. It now appears only once a block
   holds something you wrote. Dividers keep their toolbar.
 
-### Added
+#### Added
 
 - Backspace in an empty Callout, Link, Password form or single empty Checklist
   item turns the block back into a plain line; Backspace again removes it.
   Backspace on an empty checklist item (with others left) removes that item.
 
-## Unreleased — Private (Incognito) windows
+### Private (Incognito) windows
 
-### Added
+#### Added
 
 - Private / Incognito windows now appear as window cards, with a mask badge and
   a cool-grey default color. They're numbered on their own ("Private 1" in
@@ -59,16 +63,16 @@
   click. The header menu has a permanent "Private windows" item showing On/Off.
 - Manifest declares `incognito: "spanning"` (one shared instance).
 
-### Privacy
+#### Privacy
 
 - Private tabs can't be favorited (favorites are stored on disk).
 - Exported backups skip private windows entirely. Backup harness: 2 new checks.
 - Move dialog only offers windows of the same kind — the browser can't move
   tabs between private and normal windows.
 
-## Unreleased — Clickable links in notes
+### Clickable links in notes
 
-### Added
+#### Added
 
 - URLs in Text and Callout blocks now render as real links (indigo, underlined)
   instead of plain text. `http://`, `https://` and `www.` addresses are
@@ -82,7 +86,7 @@
   you clicked; links render again when you leave the block.
 - `scripts/linkifyHarness.ts` — 13 checks for URL detection.
 
-### Changed
+#### Changed
 
 - Link blocks open through `navigationService` instead of calling
   `chrome.tabs.create` from the component, and now also open next to the

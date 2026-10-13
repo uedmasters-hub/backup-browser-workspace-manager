@@ -1,11 +1,14 @@
 import { defineManifest } from "@crxjs/vite-plugin";
 
+import pkg from "../../package.json";
+
 export default defineManifest({
   manifest_version: 3,
 
   name: "Browser Workspace Manager",
 
-  version: "1.1.0",
+  // Single source of truth: package.json (bumped by scripts/release.sh).
+  version: pkg.version,
 
   description: "Manage browser windows and tabs.",
 
