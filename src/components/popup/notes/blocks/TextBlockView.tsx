@@ -4,7 +4,7 @@ import BlockShell from "./BlockShell";
 import LinkifiedTextarea from "./LinkifiedTextarea";
 import SlashMenu from "../SlashMenu";
 import { useCopy } from "../useCopy";
-import { filterBlockTypes } from "../blockTypes";
+import { filterBlockTypes, isBlockEmpty } from "../blockTypes";
 import { useNotesStore } from "../../../../stores/notesStore";
 
 import type {
@@ -115,7 +115,12 @@ export default function TextBlockView({ block }: { block: TextBlock }) {
   }
 
   return (
-    <BlockShell id={block.id} onCopy={() => copy(block.text)} copied={copied}>
+    <BlockShell
+      id={block.id}
+      onCopy={() => copy(block.text)}
+      copied={copied}
+      empty={isBlockEmpty(block)}
+    >
       <div className="relative">
         <LinkifiedTextarea
           textareaRef={ref}

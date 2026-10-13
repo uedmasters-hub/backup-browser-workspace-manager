@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import BlockShell from "./BlockShell";
 import LinkifiedTextarea from "./LinkifiedTextarea";
 import { useCopy } from "../useCopy";
+import { isBlockEmpty } from "../blockTypes";
 import { useEffect } from "react";
 
 import { useNotesStore } from "../../../../stores/notesStore";
@@ -40,6 +41,7 @@ export default function CalloutBlockView({
   block: CalloutBlock;
 }) {
   const updateBlock = useNotesStore((s) => s.updateBlock);
+  const transformBlock = useNotesStore((s) => s.transformBlock);
   const focusBlockId = useNotesStore((s) => s.focusBlockId);
   const consumeFocus = useNotesStore((s) => s.consumeFocus);
   const [copied, copy] = useCopy();
@@ -58,7 +60,12 @@ export default function CalloutBlockView({
   }
 
   return (
-    <BlockShell id={block.id} onCopy={() => copy(block.text)} copied={copied}>
+    <BlockShell
+      id={block.id}
+      onCopy={() => copy(block.text)}
+      copied={copied}
+      empty={isBlockEmpty(block)}
+    >
       <div
         className={[
           "flex gap-3 rounded-xl border px-3 py-2.5 transition-colors",
@@ -76,6 +83,13 @@ export default function CalloutBlockView({
         <LinkifiedTextarea
           value={block.text}
           onChange={(text) => updateBlock(block.id, { text })}
+          onKeyDown={(e) => {
+            // Backspace in an empty callout turns it back into a plain line.
+            if (e.key === "Backspace" && block.text === "") {
+              e.preventDefault();
+              transformBlock(block.id, "text");
+            }
+          }}
           placeholder="Callout…"
           autoFocus={autoFocus}
           className="text-sm leading-relaxed text-neutral-700"

@@ -3,6 +3,7 @@ import { ExternalLink, Globe } from "lucide-react";
 
 import BlockShell from "./BlockShell";
 import { useCopy } from "../useCopy";
+import { isBlockEmpty } from "../blockTypes";
 import { useNotesStore } from "../../../../stores/notesStore";
 import { openLinkInNewTab } from "../../../../browser/services/navigationService";
 import type { LinkBlock } from "../../../../types/notes";
@@ -17,6 +18,7 @@ function hostOf(url: string): string {
 
 export default function LinkBlockView({ block }: { block: LinkBlock }) {
   const updateBlock = useNotesStore((s) => s.updateBlock);
+  const transformBlock = useNotesStore((s) => s.transformBlock);
   const focusBlockId = useNotesStore((s) => s.focusBlockId);
   const consumeFocus = useNotesStore((s) => s.consumeFocus);
   const [copied, copy] = useCopy();
@@ -32,6 +34,16 @@ export default function LinkBlockView({ block }: { block: LinkBlock }) {
   const host = hostOf(block.url);
   const ready = block.url.trim().length > 0;
 
+  const empty = isBlockEmpty(block);
+
+  // Backspace with both fields empty turns the block back into a plain line.
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Backspace" && empty) {
+      e.preventDefault();
+      transformBlock(block.id, "text");
+    }
+  }
+
   function open() {
     if (ready) {
       void openLinkInNewTab(block.url);
@@ -39,7 +51,12 @@ export default function LinkBlockView({ block }: { block: LinkBlock }) {
   }
 
   return (
-    <BlockShell id={block.id} onCopy={() => copy(block.url)} copied={copied}>
+    <BlockShell
+      id={block.id}
+      onCopy={() => copy(block.url)}
+      copied={copied}
+      empty={empty}
+    >
       <div className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500">
           <Globe size={16} />
@@ -51,12 +68,14 @@ export default function LinkBlockView({ block }: { block: LinkBlock }) {
             value={block.label}
             placeholder="Label"
             onChange={(e) => updateBlock(block.id, { label: e.target.value })}
+            onKeyDown={onKeyDown}
             className="w-full bg-transparent text-sm font-medium text-neutral-800 outline-none placeholder:text-neutral-300"
           />
           <input
             value={block.url}
             placeholder="https://"
             onChange={(e) => updateBlock(block.id, { url: e.target.value })}
+            onKeyDown={onKeyDown}
             className="w-full bg-transparent text-xs text-neutral-400 outline-none placeholder:text-neutral-300"
           />
         </div>

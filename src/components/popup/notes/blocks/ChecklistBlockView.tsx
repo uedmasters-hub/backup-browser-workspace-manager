@@ -3,6 +3,7 @@ import { Check, Plus } from "lucide-react";
 
 import BlockShell from "./BlockShell";
 import { useCopy } from "../useCopy";
+import { isBlockEmpty } from "../blockTypes";
 import { useNotesStore } from "../../../../stores/notesStore";
 import type {
   ChecklistBlock,
@@ -19,6 +20,7 @@ export default function ChecklistBlockView({
   block: ChecklistBlock;
 }) {
   const updateBlock = useNotesStore((s) => s.updateBlock);
+  const transformBlock = useNotesStore((s) => s.transformBlock);
   const focusBlockId = useNotesStore((s) => s.focusBlockId);
   const consumeFocus = useNotesStore((s) => s.consumeFocus);
   const [copied, copy] = useCopy();
@@ -42,7 +44,12 @@ export default function ChecklistBlockView({
   }
 
   return (
-    <BlockShell id={block.id} onCopy={() => copy(asText())} copied={copied}>
+    <BlockShell
+      id={block.id}
+      onCopy={() => copy(asText())}
+      copied={copied}
+      empty={isBlockEmpty(block)}
+    >
       <div className="space-y-0.5 px-2 py-1">
         {block.items.map((item) => (
           <div key={item.id} className="flex items-center gap-2.5">
@@ -81,6 +88,16 @@ export default function ChecklistBlockView({
                 if (e.key === "Enter") {
                   e.preventDefault();
                   patch([...block.items, newItem()]);
+                }
+                // Backspace on an empty item removes it; on the last one,
+                // the checklist turns back into a plain line.
+                if (e.key === "Backspace" && item.text === "") {
+                  e.preventDefault();
+                  if (block.items.length > 1) {
+                    patch(block.items.filter((i) => i.id !== item.id));
+                  } else {
+                    transformBlock(block.id, "text");
+                  }
                 }
               }}
               className={[

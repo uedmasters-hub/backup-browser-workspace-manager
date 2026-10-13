@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased — Note block toolbar only on written content
+
+### Fixed
+
+- The hover toolbar (copy / move / delete) appeared on empty placeholder
+  blocks such as the "Write something…" line. It now appears only once a block
+  holds something you wrote. Dividers keep their toolbar.
+
+### Added
+
+- Backspace in an empty Callout, Link, Password form or single empty Checklist
+  item turns the block back into a plain line; Backspace again removes it.
+  Backspace on an empty checklist item (with others left) removes that item.
+
 ## Unreleased — Private (Incognito) windows
 
 ### Added

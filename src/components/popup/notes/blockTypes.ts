@@ -7,7 +7,7 @@ import {
   Minus,
 } from "lucide-react";
 
-import type { NoteBlockType } from "../../../types/notes";
+import type { NoteBlock, NoteBlockType } from "../../../types/notes";
 
 export interface BlockTypeMeta {
   type: NoteBlockType;
@@ -34,4 +34,25 @@ export function filterBlockTypes(query: string): BlockTypeMeta[] {
       b.label.toLowerCase().includes(q) ||
       b.keywords.some((k) => k.includes(q))
   );
+}
+
+/**
+ * True while a block holds nothing the user wrote — only its placeholder.
+ * Empty blocks get no hover toolbar (copy / move / delete); Backspace clears
+ * them instead. A divider is its own content, so it's never "empty".
+ */
+export function isBlockEmpty(block: NoteBlock): boolean {
+  switch (block.type) {
+    case "text":
+    case "callout":
+      return block.text.trim() === "";
+    case "checklist":
+      return block.items.every((i) => i.text.trim() === "");
+    case "link":
+      return block.label.trim() === "" && block.url.trim() === "";
+    case "password":
+      return !block.cipher && (block.label ?? "").trim() === "";
+    case "divider":
+      return false;
+  }
 }

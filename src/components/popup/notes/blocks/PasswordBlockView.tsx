@@ -10,6 +10,7 @@ import {
 
 import BlockShell from "./BlockShell";
 import { useCopy } from "../useCopy";
+import { isBlockEmpty } from "../blockTypes";
 import { useNotesStore } from "../../../../stores/notesStore";
 import {
   decryptSecret,
@@ -23,6 +24,7 @@ export default function PasswordBlockView({
   block: PasswordBlock;
 }) {
   const updateBlock = useNotesStore((s) => s.updateBlock);
+  const transformBlock = useNotesStore((s) => s.transformBlock);
   const [copied, copy] = useCopy();
 
   const locked = Boolean(block.cipher);
@@ -65,9 +67,11 @@ export default function PasswordBlockView({
   }
 
   // --- setup ---
+  const setupEmpty = isBlockEmpty(block) && !secret && !pin;
+
   if (!locked) {
     return (
-      <BlockShell id={block.id}>
+      <BlockShell id={block.id} empty={setupEmpty}>
         <div className="rounded-xl border border-neutral-200 bg-white p-3">
           <div className="mb-2 flex items-center gap-2 text-xs font-medium text-neutral-500">
             <Lock size={13} /> New password
@@ -76,6 +80,13 @@ export default function PasswordBlockView({
             value={block.label}
             placeholder="Label (e.g. Staging DB)"
             onChange={(e) => updateBlock(block.id, { label: e.target.value })}
+            onKeyDown={(e) => {
+              // Backspace in an untouched form turns it back into a plain line.
+              if (e.key === "Backspace" && setupEmpty) {
+                e.preventDefault();
+                transformBlock(block.id, "text");
+              }
+            }}
             className="mb-2 w-full rounded-lg bg-neutral-50 px-2.5 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-300"
           />
           <div className="flex items-center gap-2">
