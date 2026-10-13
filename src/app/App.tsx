@@ -24,6 +24,7 @@ import { useMediaStore } from "../stores/mediaStore";
 
 import NotesPanel from "../components/popup/notes/NotesPanel";
 import TabPreviewCard from "../components/popup/preview/TabPreviewCard";
+import UpdateNotice from "../components/popup/UpdateNotice";
 
 export default function App() {
   const query = useSearchStore((state) => state.query);
@@ -83,6 +84,7 @@ export default function App() {
         <Header />
 
         <section className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {!showSearch && <UpdateNotice />}
           {showSearch ? <SearchPanel /> : <WindowSection />}
         </section>
 

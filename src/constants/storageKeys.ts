@@ -9,4 +9,6 @@ export const STORAGE_KEYS = {
   FLOATER_POS: "floaterPosition",
   FLOATER_NOTES: "floaterNotes",
   PRIVATE_HINT_DISMISSED: "privateWindowsHintDismissed",
+  UPDATE_NOTICE: "updateNotice",
+  LAST_UPDATE_CHECK: "lastUpdateCheck",
 } as const;

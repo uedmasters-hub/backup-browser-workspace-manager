@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.2.1 — 2026-10-13
+
+Browsers install extension updates silently. Now the extension tells people.
+
+### Added
+
+- **What's new after every update.** When the extension updates, the toolbar
+  icon shows a **NEW** badge and the popup opens with a short "Updated to vX"
+  card listing what changed (covering every version since the one the user
+  had), plus a "See all changes" link. Dismiss it once and it's gone.
+- **Update ready banner.** When a newer version is downloaded and waiting, the
+  icon shows **↑** and the popup offers **Restart** to install it right away
+  (tabs, notes and settings are kept). The popup also asks the browser for
+  updates at most every 6 hours.
+- Release notes live in `src/constants/releaseNotes.ts`; `scripts/release.sh`
+  warns when a version has none. New harness: release notes (9 checks).
+- No new permissions.
+
 ## v1.2.0 — 2026-10-13
 
 Highlights: smart tab previews on hover, Private/Incognito window support, clickable links in notes, skeleton reveal on scroll, cleaner note blocks. No new permissions.

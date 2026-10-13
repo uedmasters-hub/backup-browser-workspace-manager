@@ -107,6 +107,10 @@ grep -q "^## v$VERSION" CHANGELOG.md \
   && ok "CHANGELOG has a v$VERSION entry" \
   || warn "CHANGELOG.md has no '## v$VERSION' heading — consider adding release notes"
 
+grep -q "\"$VERSION\":" src/constants/releaseNotes.ts \
+  && ok "In-app \"What's new\" notes for v$VERSION" \
+  || warn "src/constants/releaseNotes.ts has no \"$VERSION\" entry — users will see a generic \"Fixes and improvements\""
+
 # ---------------------------------------------------------------------------
 say "Clean install"
 npm ci --no-audit --no-fund --loglevel=error
