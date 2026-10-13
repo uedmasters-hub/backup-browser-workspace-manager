@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { MoreHorizontal } from "lucide-react";
 
 import AppIcon from "./AppIcon";
 import AppMenu from "./AppMenu";
@@ -10,7 +10,6 @@ import {
   iconFromTabs,
   windowsForApp,
   type DockApp,
-  type AppWindowMatch,
 } from "../../../browser/services/appDockRanking";
 import {
   openAppInNewTab,
@@ -20,10 +19,20 @@ import {
 
 type MenuState = { app: DockApp; anchor: DOMRect; mode: "choose" | "options" } | null;
 
+const TILE = 52;
+const MIN_GAP = 10;
+/** Pointer travel before a mouse press becomes a drag-scroll (not a click). */
+const DRAG_THRESHOLD = 6;
+
 /**
  * Horizontally scrolling row of your most-visited apps (icons only).
  * Click: not open → new window; open in one window → go there; open in
  * several → pick a window. Right-click or ⋯: new tab / new window / hide.
+ *
+ * Layout: the row is inset to the cards' width and the gap is computed so a
+ * whole number of tiles fits exactly — nothing is half-cut at rest.
+ * Scrolling: trackpad swipe, mouse wheel (vertical wheel scrolls sideways
+ * while over the row) and click-and-drag.
  */
 export default function AppDock() {
   const enabled = useAppDockStore((s) => s.enabled);
@@ -31,13 +40,14 @@ export default function AppDock() {
   const apps = useAppDockStore((s) => s.apps);
   const openTabs = useAppDockStore((s) => s.openTabs);
   const icons = useAppDockStore((s) => s.icons);
+  const hiResIcons = useAppDockStore((s) => s.hiResIcons);
   const load = useAppDockStore((s) => s.load);
   const refreshOpen = useAppDockStore((s) => s.refreshOpen);
   const hide = useAppDockStore((s) => s.hide);
   const windows = useWindowStore((s) => s.windows);
 
   const scroller = useRef<HTMLDivElement>(null);
-  const [edges, setEdges] = useState({ left: false, right: false });
+  const [gap, setGap] = useState(MIN_GAP);
   const [menu, setMenu] = useState<MenuState>(null);
 
   useEffect(() => {
@@ -50,20 +60,78 @@ export default function AppDock() {
     return () => window.clearTimeout(t);
   }, [windows, refreshOpen]);
 
-  const measure = useCallback(() => {
+  const count = loaded ? apps.length : 6;
+
+  // Fit a whole number of tiles in the visible width with equal gaps.
+  useLayoutEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    setEdges({
-      left: el.scrollLeft > 2,
-      right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2,
-    });
-  }, []);
+    const fit = () => {
+      const width = el.clientWidth;
+      const perRow = Math.max(1, Math.floor((width + MIN_GAP) / (TILE + MIN_GAP)));
+      setGap(
+        count > perRow && perRow > 1
+          ? (width - perRow * TILE) / (perRow - 1)
+          : MIN_GAP
+      );
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [count, enabled]);
 
+  // Always start at the first app, fully visible.
+  useLayoutEffect(() => {
+    if (scroller.current) scroller.current.scrollLeft = 0;
+  }, [loaded]);
+
+  // Mouse wheel: vertical wheel scrolls the row sideways while over it —
+  // unless the page itself is mid-scroll, or the row is already at that end.
   useEffect(() => {
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [measure, apps.length, loaded]);
+    const el = scroller.current;
+    if (!el) return;
+    let pageScrolledAt = 0;
+    const onPageScroll = (e: Event) => {
+      if (e.target !== el) pageScrolledAt = Date.now();
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return; // trackpad swipe: native
+      if (Date.now() - pageScrolledAt < 250) return;
+      const max = el.scrollWidth - el.clientWidth;
+      if (max <= 0) return;
+      if ((e.deltaY < 0 && el.scrollLeft <= 0) || (e.deltaY > 0 && el.scrollLeft >= max - 1)) return;
+      e.preventDefault();
+      el.scrollLeft = Math.max(0, Math.min(max, el.scrollLeft + e.deltaY));
+    };
+    window.addEventListener("scroll", onPageScroll, true);
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      window.removeEventListener("scroll", onPageScroll, true);
+      el.removeEventListener("wheel", onWheel);
+    };
+  }, [loaded, enabled]);
+
+  // Click-and-drag with a mouse; a drag never triggers the icon's click.
+  const drag = useRef<{ x: number; left: number; id: number; active: boolean } | null>(null);
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "mouse" || e.button !== 0 || !scroller.current) return;
+    drag.current = { x: e.clientX, left: scroller.current.scrollLeft, id: e.pointerId, active: false };
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    const el = scroller.current;
+    if (!d || !el) return;
+    const dx = e.clientX - d.x;
+    if (!d.active && Math.abs(dx) > DRAG_THRESHOLD) {
+      d.active = true;
+      el.setPointerCapture(d.id); // the release then lands on the row, not the icon
+    }
+    if (d.active) el.scrollLeft = d.left - dx;
+  };
+  const endDrag = () => {
+    drag.current = null;
+  };
 
   const closeMenu = useCallback(() => setMenu(null), []);
 
@@ -81,51 +149,34 @@ export default function AppDock() {
     }
   }
 
-  function scrollBy(dir: 1 | -1) {
-    const el = scroller.current;
-    if (el) el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
-  }
-
-  const arrow =
-    "absolute top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 opacity-0 shadow-sm transition-opacity group-hover/dock:opacity-100 focus-visible:opacity-100 hover:text-neutral-900";
+  const iconOf = (key: string) => iconFromTabs(key, openTabs) ?? icons[key];
 
   return (
-    <div className="group/dock relative mt-3" role="toolbar" aria-label="Most-visited apps">
-      {edges.left && (
-        <>
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-[5] w-8 bg-gradient-to-r from-[#F6F7FB] to-transparent" />
-          <button type="button" aria-label="Scroll apps left" onClick={() => scrollBy(-1)} className={`${arrow} left-2`}>
-            <ChevronLeft size={16} />
-          </button>
-        </>
-      )}
-      {edges.right && (
-        <>
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-[5] w-8 bg-gradient-to-l from-[#F6F7FB] to-transparent" />
-          <button type="button" aria-label="Scroll apps right" onClick={() => scrollBy(1)} className={`${arrow} right-2`}>
-            <ChevronRight size={16} />
-          </button>
-        </>
-      )}
-
+    <div className="mt-3" role="toolbar" aria-label="Most-visited apps">
       <div
         ref={scroller}
-        onScroll={measure}
-        className="flex snap-x gap-2.5 overflow-x-auto scroll-smooth px-5 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        style={{ gap }}
+        className="mx-5 flex overflow-x-auto overscroll-x-contain py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {!loaded
           ? Array.from({ length: 6 }, (_, i) => (
               <div key={i} className="bwm-skeleton h-[52px] w-[52px] shrink-0 rounded-2xl" />
             ))
           : apps.map((app) => {
-              const matches: AppWindowMatch[] = windowsForApp(app.key, openTabs);
+              const matches = windowsForApp(app.key, openTabs);
               const open = matches.length > 0;
-              const icon = iconFromTabs(app.key, openTabs) ?? icons[app.key];
               const label = open
                 ? `${app.name} — open in ${matches.length} window${matches.length > 1 ? "s" : ""}`
                 : app.name;
+              const openOptions = (target: HTMLElement) =>
+                setMenu({ app, anchor: target.getBoundingClientRect(), mode: "options" });
+
               return (
-                <div key={app.key} className="group/app relative shrink-0 snap-start">
+                <div key={app.key} className="group/app relative h-[52px] w-[52px] shrink-0">
                   <button
                     type="button"
                     aria-label={label}
@@ -134,24 +185,33 @@ export default function AppDock() {
                     onClick={(e) => primary(app, e.currentTarget)}
                     onContextMenu={(e) => {
                       e.preventDefault();
-                      setMenu({ app, anchor: e.currentTarget.getBoundingClientRect(), mode: "options" });
+                      openOptions(e.currentTarget);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
                         e.preventDefault();
-                        setMenu({ app, anchor: e.currentTarget.getBoundingClientRect(), mode: "options" });
+                        openOptions(e.currentTarget);
                       }
                     }}
-                    className="relative flex h-[52px] w-[52px] items-center justify-center rounded-2xl bg-[#E3EFED] outline-none transition duration-150 ease-out hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-neutral-900 active:translate-y-0 active:scale-95"
+                    className="flex h-full w-full items-center justify-center rounded-2xl bg-[#E3EFED] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-900"
                   >
-                    <AppIcon name={app.name} url={app.url} icon={icon} />
-                    {open && (
-                      <span aria-hidden="true" className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-neutral-800" />
-                    )}
+                    {/* Hover: the icon grows a touch; press: it settles back. */}
+                    <span className="flex items-center justify-center transition-transform duration-150 ease-out group-hover/app:scale-[1.14] group-active/app:scale-95 motion-reduce:transition-none">
+                      <AppIcon
+                        name={app.name}
+                        url={app.url}
+                        icon={iconOf(app.key)}
+                        hiRes={hiResIcons[app.key]}
+                      />
+                    </span>
                   </button>
 
+                  {open && (
+                    <span aria-hidden="true" className="pointer-events-none absolute bottom-[5px] left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-neutral-800" />
+                  )}
+
                   {matches.length > 1 && (
-                    <span aria-hidden="true" className="pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-900 px-1 text-[10px] font-semibold text-white ring-2 ring-[#F6F7FB]">
+                    <span aria-hidden="true" className="pointer-events-none absolute right-1 top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-neutral-900 px-1 text-[9.5px] font-semibold leading-none text-white">
                       {matches.length}
                     </span>
                   )}
@@ -160,16 +220,10 @@ export default function AppDock() {
                     type="button"
                     tabIndex={-1}
                     aria-label={`${app.name} options`}
-                    onClick={(e) =>
-                      setMenu({
-                        app,
-                        anchor: e.currentTarget.parentElement!.getBoundingClientRect(),
-                        mode: "options",
-                      })
-                    }
-                    className="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 opacity-0 shadow-sm transition-opacity group-hover/app:opacity-100 hover:text-neutral-900"
+                    onClick={(e) => openOptions(e.currentTarget.parentElement!)}
+                    className="absolute bottom-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white/95 text-neutral-600 opacity-0 transition-opacity hover:text-neutral-900 group-hover/app:opacity-100"
                   >
-                    <MoreHorizontal size={12} />
+                    <MoreHorizontal size={11} />
                   </button>
                 </div>
               );
@@ -179,7 +233,8 @@ export default function AppDock() {
       {menu && (
         <AppMenu
           app={menu.app}
-          icon={iconFromTabs(menu.app.key, openTabs) ?? icons[menu.app.key]}
+          icon={iconOf(menu.app.key)}
+          hiRes={hiResIcons[menu.app.key]}
           anchor={menu.anchor}
           mode={menu.mode}
           windows={windowsForApp(menu.app.key, openTabs)}

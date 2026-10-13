@@ -3,6 +3,7 @@ import { create } from "zustand";
 import type { DockApp, DockTab } from "../browser/services/appDockRanking";
 import {
   getOpenDockTabs,
+  collectHiResIcons,
   getTopApps,
   rememberAppIcons,
 } from "../browser/services/appDockService";
@@ -19,6 +20,8 @@ interface AppDockStore {
   apps: DockApp[];
   openTabs: DockTab[];
   icons: Record<string, string>;
+  /** Sharp icon per app ("" = looked, none found). */
+  hiResIcons: Record<string, string>;
   loaded: boolean;
   load: () => Promise<void>;
   /** Re-read open tabs (cheap) — keeps open-state dots and icons live. */
@@ -34,6 +37,7 @@ export const useAppDockStore = create<AppDockStore>((set, get) => ({
   apps: [],
   openTabs: [],
   icons: {},
+  hiResIcons: {},
   loaded: false,
 
   load: async () => {
@@ -48,6 +52,8 @@ export const useAppDockStore = create<AppDockStore>((set, get) => ({
       rememberAppIcons(openTabs),
     ]);
     set({ apps, icons, loaded: true });
+    const hiResIcons = await collectHiResIcons(apps.map((a) => a.key), openTabs);
+    set({ hiResIcons });
   },
 
   refreshOpen: async () => {

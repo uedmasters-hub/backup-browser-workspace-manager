@@ -19,6 +19,7 @@ import {
 
 const RANK_CACHE = "appDockRanking";
 const ICON_CACHE = "appDockIcons";
+const HIRES_CACHE = "appDockHiResIcons";
 const MAX_ICON_BYTES = 24_000;
 
 export async function getOpenDockTabs(): Promise<DockTab[]> {
@@ -131,4 +132,70 @@ export async function openAppInNewTab(url: string): Promise<void> {
       ? { windowId: current.windowId, index: current.index + 1 }
       : {}),
   });
+}
+
+/**
+ * Sharp icons: favicons are often 16px, which blur when shown at 28px on a
+ * Retina screen. For each dock app that's open, read the page's best icon
+ * (an SVG icon, an Apple touch icon, or the largest declared size) once per
+ * session. Results — including "none found" — are kept in memory only.
+ */
+export async function collectHiResIcons(
+  keys: string[],
+  tabs: DockTab[]
+): Promise<Record<string, string>> {
+  let cache: Record<string, string> = {};
+  try {
+    const stored = await chrome.storage.session.get(HIRES_CACHE);
+    cache = { ...((stored[HIRES_CACHE] as Record<string, string> | undefined) ?? {}) };
+  } catch {
+    return {};
+  }
+
+  const todo = keys.filter((k) => !(k in cache));
+  await Promise.all(
+    todo.map(async (key) => {
+      const tab = tabs.find(
+        (t) => !t.incognito && appKey(t.url) === key && /^https?:/.test(t.url)
+      );
+      if (!tab) return; // not open — try again another time
+      try {
+        const [res] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            const links = [
+              ...document.querySelectorAll<HTMLLinkElement>(
+                'link[rel~="icon"], link[rel="apple-touch-icon"], link[rel="apple-touch-icon-precomposed"]'
+              ),
+            ];
+            let best = "";
+            let bestScore = 0;
+            for (const link of links) {
+              if (!link.href) continue;
+              const isSvg = link.type === "image/svg+xml" || /\.svg(\?|$)/i.test(link.href);
+              const sizes = (link.getAttribute("sizes") ?? "")
+                .split(/\s+/)
+                .map((s) => parseInt(s, 10))
+                .filter((n) => n > 0);
+              const touch = link.rel.includes("apple-touch-icon");
+              const score = isSvg ? 1000 : sizes.length ? Math.max(...sizes) : touch ? 180 : 16;
+              if (score > bestScore) {
+                best = link.href;
+                bestScore = score;
+              }
+            }
+            return bestScore >= 48 ? best : "";
+          },
+        });
+        cache[key] = typeof res?.result === "string" ? res.result : "";
+      } catch {
+        cache[key] = "";
+      }
+    })
+  );
+
+  if (todo.length) {
+    await chrome.storage.session.set({ [HIRES_CACHE]: cache }).catch(() => undefined);
+  }
+  return cache;
 }

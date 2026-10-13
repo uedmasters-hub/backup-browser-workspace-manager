@@ -9,6 +9,7 @@ import type { AppWindowMatch, DockApp } from "../../../browser/services/appDockR
 type Props = {
   app: DockApp;
   icon?: string;
+  hiRes?: string;
   anchor: DOMRect;
   windows: AppWindowMatch[];
   /** "choose": opened by clicking an app that's open in several windows. */
@@ -27,6 +28,7 @@ const EDGE = 8;
 export default function AppMenu({
   app,
   icon,
+  hiRes,
   anchor,
   windows,
   mode,
@@ -100,7 +102,7 @@ export default function AppMenu({
         className="rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-2xl"
       >
         <div className="flex items-center gap-2.5 px-2.5 pb-2 pt-1.5">
-          <AppIcon name={app.name} url={app.url} icon={icon} />
+          <AppIcon name={app.name} url={app.url} icon={icon} hiRes={hiRes} />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-neutral-900">{app.name}</p>
             <p className="truncate text-[11px] text-neutral-400">
