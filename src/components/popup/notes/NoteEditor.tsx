@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import {
-  ChevronDown,
   ChevronLeft,
   FolderInput,
+  MoreVertical,
   Download,
   Lock,
   LockOpen,
@@ -32,6 +32,7 @@ export default function NoteEditor({ note }: { note: Note }) {
 
   const [mode, setMode] = useState<null | "lock">(null);
   const [moveAnchor, setMoveAnchor] = useState<DOMRect | null>(null);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const project = useNotesStore((s) =>
     note.projectId ? s.projects.find((p) => p.id === note.projectId) : undefined
   );
@@ -83,6 +84,7 @@ export default function NoteEditor({ note }: { note: Note }) {
   return (
     <div className="absolute inset-0 z-20 flex flex-col bg-white">
       <div className="sticky top-0 z-10 shrink-0 bg-white px-3 pb-2 pt-4">
+        {/* Row 1 — back · title · move to project · more */}
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -93,75 +95,107 @@ export default function NoteEditor({ note }: { note: Note }) {
             <ChevronLeft size={20} />
           </button>
 
+          {locked && (
+            <Lock
+              size={13}
+              className="ml-1 shrink-0 text-amber-500"
+              aria-label="Locked and encrypted"
+            />
+          )}
           <input
             value={note.title}
             onChange={(e) => updateNoteTitle(note.id, e.target.value)}
             placeholder="Untitled"
+            aria-label="Note title"
             className="min-w-0 flex-1 bg-transparent px-1 text-base font-semibold text-neutral-900 outline-none placeholder:text-neutral-300"
           />
 
           <button
             type="button"
-            onClick={() => (locked ? removeLock(note.id) : setMode("lock"))}
-            aria-label={locked ? "Remove lock" : "Lock note"}
-            title={
-              locked
-                ? "Locked & encrypted · tap to remove the lock"
-                : "Lock note (encrypt with a PIN)"
-            }
-            className={[
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors",
-              locked
-                ? "text-amber-500 hover:bg-amber-50"
-                : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700",
-            ].join(" ")}
-          >
-            {locked ? <Lock size={17} /> : <LockOpen size={17} />}
-          </button>
-
-          <button
-            type="button"
-            onClick={download}
-            aria-label="Download as text"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-          >
-            <Download size={17} />
-          </button>
-          <button
-            type="button"
-            onClick={() => deleteNote(note.id)}
-            aria-label="Delete note"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-red-500"
-          >
-            <Trash2 size={17} />
-          </button>
-        </div>
-
-        <div className="ml-11 mt-0.5 flex">
-          <button
-            type="button"
             onClick={(e) => setMoveAnchor(e.currentTarget.getBoundingClientRect())}
             aria-haspopup="menu"
             aria-expanded={Boolean(moveAnchor)}
-            title={project ? "Move to another project" : "Add this note to a project"}
+            aria-label={project ? `Move to project (in ${project.name})` : "Move to project"}
+            title={project ? `In ${project.name} · move` : "Move to project"}
+            style={project ? { color: project.color } : undefined}
             className={[
-              "inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-0.5 text-xs transition-colors",
-              project
-                ? "bg-neutral-100 font-medium text-neutral-600 hover:bg-neutral-200/70"
-                : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600",
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-neutral-100",
+              project ? "" : "text-neutral-400 hover:text-neutral-700",
             ].join(" ")}
           >
-            {project ? (
-              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: project.color }} />
-            ) : (
-              <FolderInput size={12} className="shrink-0" />
-            )}
-            <span className="truncate">{project ? project.name : "Add to project"}</span>
-            <ChevronDown size={12} className="shrink-0 opacity-60" />
+            <FolderInput size={17} />
           </button>
           {moveAnchor && (
             <MoveToProjectMenu noteId={note.id} anchor={moveAnchor} onClose={() => setMoveAnchor(null)} />
           )}
+
+          <button
+            type="button"
+            onClick={() => setActionsOpen((open) => !open)}
+            aria-label="More actions"
+            title="More actions"
+            aria-expanded={actionsOpen}
+            aria-controls="note-actions"
+            className={[
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors",
+              actionsOpen
+                ? "bg-neutral-100 text-neutral-800"
+                : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700",
+            ].join(" ")}
+          >
+            <MoreVertical size={17} />
+          </button>
+        </div>
+
+        {/* Row 2 — lock · download · delete (opened from ⋮) */}
+        <div
+          id="note-actions"
+          className={[
+            "grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none",
+            actionsOpen ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0",
+          ].join(" ")}
+          inert={!actionsOpen}
+        >
+          <div className="overflow-hidden">
+            <div
+              role="toolbar"
+              aria-label="Note actions"
+              className="mt-1.5 flex items-center justify-end gap-1 border-t border-neutral-100 pt-1.5"
+            >
+              <button
+                type="button"
+                onClick={() => (locked ? removeLock(note.id) : setMode("lock"))}
+                aria-label={locked ? "Remove lock" : "Lock note"}
+                title={locked ? "Locked & encrypted · remove the lock" : "Lock note (encrypt with a PIN)"}
+                className={[
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors",
+                  locked
+                    ? "text-amber-500 hover:bg-amber-50"
+                    : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700",
+                ].join(" ")}
+              >
+                {locked ? <Lock size={17} /> : <LockOpen size={17} />}
+              </button>
+              <button
+                type="button"
+                onClick={download}
+                aria-label="Download as text"
+                title="Download as text"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+              >
+                <Download size={17} />
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteNote(note.id)}
+                aria-label="Delete note"
+                title="Delete note"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+              >
+                <Trash2 size={17} />
+              </button>
+            </div>
+          </div>
         </div>
 
         {mode === "lock" && (
