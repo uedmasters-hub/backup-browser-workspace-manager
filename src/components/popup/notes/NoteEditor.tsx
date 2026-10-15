@@ -14,6 +14,7 @@ import { useNotesStore } from "../../../stores/notesStore";
 import BlockRenderer from "./blocks/BlockRenderer";
 import PinPrompt from "./PinPrompt";
 import MoveToProjectMenu from "./projects/MoveToProjectMenu";
+import DropdownMenu, { MenuDivider, MenuRow } from "./menus/DropdownMenu";
 import { noteToText } from "./serialize";
 
 import type { Note } from "../../../types/notes";
@@ -32,7 +33,7 @@ export default function NoteEditor({ note }: { note: Note }) {
 
   const [mode, setMode] = useState<null | "lock">(null);
   const [moveAnchor, setMoveAnchor] = useState<DOMRect | null>(null);
-  const [actionsOpen, setActionsOpen] = useState(false);
+  const [actionsAnchor, setActionsAnchor] = useState<DOMRect | null>(null);
   const project = useNotesStore((s) =>
     note.projectId ? s.projects.find((p) => p.id === note.projectId) : undefined
   );
@@ -131,71 +132,52 @@ export default function NoteEditor({ note }: { note: Note }) {
 
           <button
             type="button"
-            onClick={() => setActionsOpen((open) => !open)}
+            onClick={(e) => setActionsAnchor(e.currentTarget.getBoundingClientRect())}
             aria-label="More actions"
             title="More actions"
-            aria-expanded={actionsOpen}
-            aria-controls="note-actions"
+            aria-haspopup="menu"
+            aria-expanded={Boolean(actionsAnchor)}
             className={[
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors",
-              actionsOpen
+              actionsAnchor
                 ? "bg-neutral-100 text-neutral-800"
                 : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700",
             ].join(" ")}
           >
             <MoreVertical size={17} />
           </button>
-        </div>
-
-        {/* Row 2 — lock · download · delete (opened from ⋮) */}
-        <div
-          id="note-actions"
-          className={[
-            "grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none",
-            actionsOpen ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0",
-          ].join(" ")}
-          inert={!actionsOpen}
-        >
-          <div className="overflow-hidden">
-            <div
-              role="toolbar"
-              aria-label="Note actions"
-              className="mt-1.5 flex items-center justify-end gap-1 border-t border-neutral-100 pt-1.5"
-            >
-              <button
-                type="button"
-                onClick={() => (locked ? removeLock(note.id) : setMode("lock"))}
-                aria-label={locked ? "Remove lock" : "Lock note"}
-                title={locked ? "Locked & encrypted · remove the lock" : "Lock note (encrypt with a PIN)"}
-                className={[
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors",
-                  locked
-                    ? "text-amber-500 hover:bg-amber-50"
-                    : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700",
-                ].join(" ")}
-              >
-                {locked ? <Lock size={17} /> : <LockOpen size={17} />}
-              </button>
-              <button
-                type="button"
-                onClick={download}
-                aria-label="Download as text"
-                title="Download as text"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-              >
-                <Download size={17} />
-              </button>
-              <button
-                type="button"
-                onClick={() => deleteNote(note.id)}
-                aria-label="Delete note"
-                title="Delete note"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
-              >
-                <Trash2 size={17} />
-              </button>
-            </div>
-          </div>
+          {actionsAnchor && (
+            <DropdownMenu anchor={actionsAnchor} onClose={() => setActionsAnchor(null)} label="Note actions" width={216}>
+              <MenuRow
+                icon={locked ? <Lock size={14} /> : <LockOpen size={14} />}
+                tone={locked ? "warning" : "default"}
+                label={locked ? "Remove lock" : "Lock note"}
+                onSelect={() => {
+                  setActionsAnchor(null);
+                  if (locked) removeLock(note.id);
+                  else setMode("lock");
+                }}
+              />
+              <MenuRow
+                icon={<Download size={14} />}
+                label="Download as text"
+                onSelect={() => {
+                  setActionsAnchor(null);
+                  download();
+                }}
+              />
+              <MenuDivider />
+              <MenuRow
+                icon={<Trash2 size={14} />}
+                tone="danger"
+                label="Delete note"
+                onSelect={() => {
+                  setActionsAnchor(null);
+                  deleteNote(note.id);
+                }}
+              />
+            </DropdownMenu>
+          )}
         </div>
 
         {mode === "lock" && (
