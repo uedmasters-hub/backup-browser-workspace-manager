@@ -283,7 +283,7 @@ function OpenProject({ project }: { project: NoteProject }) {
             </p>
           </div>
         ) : (
-          <div className="space-y-1.5 py-1">
+          <div className="space-y-1 py-1">
             {notes.map((n) => (
               <NoteRow key={n.id} note={n} />
             ))}

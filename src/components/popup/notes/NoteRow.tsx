@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { FolderInput, Lock, Trash2 } from "lucide-react";
+import { FolderInput, Trash2 } from "lucide-react";
 
 import PinPrompt from "./PinPrompt";
+import NoteIcon from "./NoteIcon";
 import MoveToProjectMenu from "./projects/MoveToProjectMenu";
 import { ago, preview } from "./noteMeta";
 import { useNotesStore } from "../../../stores/notesStore";
 
 import type { Note } from "../../../types/notes";
 
-/** One note in a list. Hover: move to a project · delete. */
+/** One note in a list: document icon · title · preview · time. Hover: move · delete. */
 export default function NoteRow({ note, showProject = false }: { note: Note; showProject?: boolean }) {
   const openNote = useNotesStore((s) => s.openNote);
   const deleteNote = useNotesStore((s) => s.deleteNote);
@@ -28,30 +29,37 @@ export default function NoteRow({ note, showProject = false }: { note: Note; sho
       <button
         type="button"
         onClick={() => void openNote(note.id)}
-        className="w-full rounded-2xl border border-transparent px-3 py-3 text-left transition-colors hover:border-neutral-200 hover:bg-neutral-50"
+        className="flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5 text-left transition-colors hover:border-neutral-200 hover:bg-neutral-50"
       >
-        <p className="flex items-center gap-1.5 truncate pr-16 text-sm font-medium text-neutral-800">
-          {note.locked && <Lock size={12} className="shrink-0 text-amber-500" aria-label="Locked" />}
-          <span className="truncate">{note.title.trim() || "Untitled"}</span>
-        </p>
-        <p className="mt-0.5 truncate text-xs text-neutral-400">
-          {note.locked ? "Locked · encrypted" : preview(note)}
-        </p>
-        <p className="mt-1 flex items-center gap-1.5 text-[11px] text-neutral-300">
-          {project && (
-            <>
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: project.color }} />
-              <span className="max-w-[160px] truncate text-neutral-400">{project.name}</span>
-              <span aria-hidden="true">·</span>
-            </>
-          )}
+        <NoteIcon locked={note.locked} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium text-neutral-800">
+            {note.title.trim() || "Untitled"}
+          </span>
+          <span className="flex min-w-0 items-center gap-1.5 text-xs text-neutral-400">
+            {project && (
+              <>
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: project.color }} />
+                <span className="max-w-[120px] shrink-0 truncate">{project.name}</span>
+                <span aria-hidden="true" className="text-neutral-300">·</span>
+              </>
+            )}
+            <span className="truncate">{note.locked ? "Locked" : preview(note)}</span>
+          </span>
+        </span>
+        <span
+          className={[
+            "shrink-0 text-[11px] text-neutral-300 transition-opacity group-hover/note:opacity-0",
+            moveAnchor ? "opacity-0" : "",
+          ].join(" ")}
+        >
           {ago(note.updatedAt)}
-        </p>
+        </span>
       </button>
 
       <div
         className={[
-          "absolute right-2 top-2.5 flex items-center gap-0.5 transition-opacity group-hover/note:opacity-100 focus-within:opacity-100",
+          "absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5 transition-opacity group-hover/note:opacity-100 focus-within:opacity-100",
           moveAnchor ? "opacity-100" : "opacity-0",
         ].join(" ")}
       >

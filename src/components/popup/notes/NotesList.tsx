@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronRight, Folder, FolderPlus, Plus, Search, StickyNote, X } from "lucide-react";
+import { ChevronRight, FolderPlus, Plus, Search, StickyNote, X } from "lucide-react";
 
 import { useUIStore } from "../../../stores/uiStore";
 import { useNotesStore } from "../../../stores/notesStore";
@@ -11,18 +11,6 @@ import { ago, matchesQuery } from "./noteMeta";
 import type { Note, NoteProject } from "../../../types/notes";
 
 type ProjectSummary = { project: NoteProject; count: number; lastActive: number };
-
-function SectionLabel({ icon, label, count }: { icon: React.ReactNode; label: string; count: number }) {
-  return (
-    <div className="mb-1 mt-3 flex items-center gap-2 px-1 first:mt-1">
-      {icon}
-      <span className="text-xs font-medium text-neutral-500">
-        {label}
-        {count > 0 ? ` · ${count}` : ""}
-      </span>
-    </div>
-  );
-}
 
 function ProjectRow({ summary, onOpen }: { summary: ProjectSummary; onOpen: () => void }) {
   const { project, count, lastActive } = summary;
@@ -36,20 +24,18 @@ function ProjectRow({ summary, onOpen }: { summary: ProjectSummary; onOpen: () =
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium text-neutral-800">{project.name}</span>
         <span className="block truncate text-xs text-neutral-400">
-          {project.locked
-            ? "Locked · encrypted"
-            : count === 0
-              ? "No notes yet"
-              : `${count} note${count === 1 ? "" : "s"}`}{" "}
-          · {ago(lastActive)}
+          {project.locked ? "Locked" : count === 0 ? "Empty" : `${count} note${count === 1 ? "" : "s"}`}
         </span>
       </span>
-      <ChevronRight size={16} className="shrink-0 text-neutral-300" />
+      <span className="flex shrink-0 items-center gap-0.5 text-[11px] text-neutral-300">
+        {ago(lastActive)}
+        <ChevronRight size={14} className="-mr-1" />
+      </span>
     </button>
   );
 }
 
-/** All notes: projects first, then standalone notes. Search looks everywhere. */
+/** One list: projects (folders) first, then standalone notes (documents). Search looks everywhere. */
 export default function NotesList() {
   const closeNotes = useUIStore((s) => s.closeNotes);
 
@@ -130,81 +116,50 @@ export default function NotesList() {
           foundProjects.length + foundNotes.length === 0 ? (
             <div className="py-16 text-center text-sm text-neutral-400">Nothing matches “{query}”.</div>
           ) : (
-            <div className="py-1">
-              {foundProjects.length > 0 && (
-                <>
-                  <SectionLabel icon={<Folder size={13} className="text-neutral-400" />} label="Projects" count={foundProjects.length} />
-                  <div className="space-y-1">
-                    {foundProjects.map((s) => (
-                      <ProjectRow key={s.project.id} summary={s} onOpen={() => openProject(s.project.id)} />
-                    ))}
-                  </div>
-                </>
-              )}
-              {foundNotes.length > 0 && (
-                <>
-                  <SectionLabel icon={<StickyNote size={13} className="text-neutral-400" />} label="Notes" count={foundNotes.length} />
-                  <div className="space-y-1.5">
-                    {foundNotes.map((n) => (
-                      <NoteRow key={n.id} note={n} showProject />
-                    ))}
-                  </div>
-                </>
-              )}
+            <div className="space-y-1 py-1">
+              {foundProjects.map((s) => (
+                <ProjectRow key={s.project.id} summary={s} onOpen={() => openProject(s.project.id)} />
+              ))}
+              {foundNotes.map((n) => (
+                <NoteRow key={n.id} note={n} showProject />
+              ))}
             </div>
           )
         ) : (
-          <div className="py-1">
-            {(summaries.length > 0 || newProject !== null) && (
-              <>
-                <SectionLabel icon={<Folder size={13} className="text-neutral-400" />} label="Projects" count={summaries.length} />
-                <div className="space-y-1">
-                  {newProject !== null && (
-                    <form
-                      className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2.5"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        submitProject();
-                      }}
-                    >
-                      <ProjectIcon color="#a3a3a3" />
-                      <input
-                        autoFocus
-                        value={newProject}
-                        onChange={(e) => setNewProject(e.target.value)}
-                        onBlur={submitProject}
-                        onKeyDown={(e) => {
-                          if (e.key === "Escape") {
-                            e.preventDefault();
-                            setNewProject(null);
-                          }
-                        }}
-                        placeholder="Project name, e.g. eMedicalls"
-                        aria-label="New project name"
-                        maxLength={80}
-                        className="min-w-0 flex-1 bg-transparent text-sm font-medium text-neutral-800 outline-none placeholder:font-normal placeholder:text-neutral-400"
-                      />
-                    </form>
-                  )}
-                  {summaries.map((s) => (
-                    <ProjectRow key={s.project.id} summary={s} onOpen={() => openProject(s.project.id)} />
-                  ))}
-                </div>
-              </>
+          <div className="space-y-1 py-1">
+            {newProject !== null && (
+              <form
+                className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2.5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  submitProject();
+                }}
+              >
+                <ProjectIcon color="#a3a3a3" />
+                <input
+                  autoFocus
+                  value={newProject}
+                  onChange={(e) => setNewProject(e.target.value)}
+                  onBlur={submitProject}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      setNewProject(null);
+                    }
+                  }}
+                  placeholder="Project name, e.g. eMedicalls"
+                  aria-label="New project name"
+                  maxLength={80}
+                  className="min-w-0 flex-1 bg-transparent text-sm font-medium text-neutral-800 outline-none placeholder:font-normal placeholder:text-neutral-400"
+                />
+              </form>
             )}
-
-            <SectionLabel icon={<StickyNote size={13} className="text-neutral-400" />} label="Notes" count={standalone.length} />
-            {standalone.length === 0 ? (
-              <p className="px-1 py-3 text-xs text-neutral-400">
-                No standalone notes — every note is in a project.
-              </p>
-            ) : (
-              <div className="space-y-1.5">
-                {standalone.map((n) => (
-                  <NoteRow key={n.id} note={n} />
-                ))}
-              </div>
-            )}
+            {summaries.map((s) => (
+              <ProjectRow key={s.project.id} summary={s} onOpen={() => openProject(s.project.id)} />
+            ))}
+            {standalone.map((n) => (
+              <NoteRow key={n.id} note={n} />
+            ))}
           </div>
         )}
       </div>

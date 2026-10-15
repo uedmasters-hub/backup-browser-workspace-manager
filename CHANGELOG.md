@@ -6,8 +6,10 @@
 
 - **Projects in Notes.** Group related notes under a project (e.g.
   "eMedicalls") while standalone notes work exactly as before.
-  - Notes shows Projects first (name, note count, last activity), then
-    standalone notes. "Project" next to "New note" creates one.
+  - Notes shows one unified list: projects first (folder icon, note count,
+    last activity), then standalone notes (document icon) — no section
+    labels. A small lock badge appears only on locked items. "Project" next
+    to "New note" creates one.
   - Opening a project lists its notes; "New note in …" creates the note
     inside it, and leaving a note returns to the project.
   - Move any note in or out — from the move button on a note row, or the
