@@ -1,23 +1,74 @@
-import { useState } from "react";
-import { ChevronLeft, Download, FileText, Plus, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import {
+  Check,
+  ChevronLeft,
+  Download,
+  FileText,
+  Lock,
+  LockOpen,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 
 import NoteRow from "../NoteRow";
+import PinPrompt from "../PinPrompt";
+import LockGate from "../LockGate";
 import ProjectIcon from "./ProjectIcon";
-import { useNotesStore } from "../../../../stores/notesStore";
+import DropdownMenu, { MenuCaption, MenuDivider, MenuRow } from "../menus/DropdownMenu";
+import { PROJECT_COLORS, useNotesStore } from "../../../../stores/notesStore";
 
 import type { NoteProject } from "../../../../types/notes";
 
-/** One project: its notes, a new-note button, rename, download, delete. */
+const COLOR_NAMES: Record<string, string> = {
+  "#6366F1": "Indigo",
+  "#0EA5E9": "Sky",
+  "#10B981": "Emerald",
+  "#F59E0B": "Amber",
+  "#EC4899": "Pink",
+  "#8B5CF6": "Violet",
+  "#EF4444": "Red",
+  "#14B8A6": "Teal",
+};
+
+/** A project: its notes, or — while locked — the PIN screen. */
 export default function ProjectView({ project }: { project: NoteProject }) {
+  const open = useNotesStore((s) => s.unlockedProjectIds.includes(project.id));
+  const openProject = useNotesStore((s) => s.openProject);
+  const unlockProject = useNotesStore((s) => s.unlockProject);
+
+  if (project.locked && !open) {
+    return (
+      <LockGate
+        title={project.name}
+        badge={<ProjectIcon color={project.color} size={24} />}
+        subtitle="This project is encrypted. Enter your PIN to open its notes."
+        backLabel="Back to all notes"
+        onBack={() => openProject(undefined)}
+        onUnlock={(pin) => unlockProject(project.id, pin)}
+      />
+    );
+  }
+  return <OpenProject project={project} />;
+}
+
+function OpenProject({ project }: { project: NoteProject }) {
   const openProject = useNotesStore((s) => s.openProject);
   const renameProject = useNotesStore((s) => s.renameProject);
   const deleteProject = useNotesStore((s) => s.deleteProject);
+  const setProjectColor = useNotesStore((s) => s.setProjectColor);
+  const lockProject = useNotesStore((s) => s.lockProject);
+  const relockProject = useNotesStore((s) => s.relockProject);
+  const removeProjectLock = useNotesStore((s) => s.removeProjectLock);
   const createNote = useNotesStore((s) => s.createNote);
   const allNotes = useNotesStore((s) => s.notes);
   const notes = allNotes.filter((n) => n.projectId === project.id);
 
+  const nameRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(project.name);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [menu, setMenu] = useState<DOMRect | null>(null);
+  const [panel, setPanel] = useState<null | "lock" | "delete">(null);
 
   const commitName = () => {
     const trimmed = name.trim();
@@ -28,18 +79,31 @@ export default function ProjectView({ project }: { project: NoteProject }) {
     if (trimmed !== project.name) renameProject(project.id, trimmed);
   };
 
-  const iconButton =
-    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700";
+  const closeMenu = () => setMenu(null);
+  const download = () =>
+    // Export code loads on demand — it's only needed for downloads.
+    void import("../projectExport").then(({ downloadProject }) =>
+      downloadProject({ ...project, name: name.trim() || project.name }, notes)
+    );
+
+  const count = notes.length;
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col bg-white">
       <div className="sticky top-0 z-10 shrink-0 bg-white px-3 pb-2 pt-4">
+        {/* back · icon · name · ⋮ */}
         <div className="flex items-center gap-1">
-          <button type="button" onClick={() => openProject(undefined)} aria-label="Back to all notes" className={iconButton.replace("text-neutral-400", "text-neutral-500")}>
+          <button
+            type="button"
+            onClick={() => openProject(undefined)}
+            aria-label="Back to all notes"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100"
+          >
             <ChevronLeft size={20} />
           </button>
-          <ProjectIcon color={project.color} size={30} />
+          <ProjectIcon color={project.color} size={30} locked={project.locked} />
           <input
+            ref={nameRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
             onBlur={commitName}
@@ -56,44 +120,131 @@ export default function ProjectView({ project }: { project: NoteProject }) {
           />
           <button
             type="button"
-            onClick={() =>
-              // Export code loads on demand — it's only needed for downloads.
-              void import("../projectExport").then(({ downloadProject }) =>
-                downloadProject({ ...project, name: name.trim() || project.name }, notes)
-              )
-            }
-            aria-label="Download project as ZIP"
-            title="Download project (ZIP)"
-            className={iconButton}
+            onClick={(e) => setMenu(e.currentTarget.getBoundingClientRect())}
+            aria-label="Project actions"
+            title="Project actions"
+            aria-haspopup="menu"
+            aria-expanded={Boolean(menu)}
+            className={[
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors",
+              menu ? "bg-neutral-100 text-neutral-800" : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700",
+            ].join(" ")}
           >
-            <Download size={17} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setConfirmDelete(true)}
-            aria-label="Delete project"
-            title="Delete project"
-            className={`${iconButton} hover:!bg-red-50 hover:!text-red-500`}
-          >
-            <Trash2 size={17} />
+            <MoreVertical size={17} />
           </button>
         </div>
 
-        {confirmDelete && (
+        {menu && (
+          <DropdownMenu anchor={menu} onClose={closeMenu} label="Project actions" width={232}>
+            <MenuRow
+              icon={<Pencil size={14} />}
+              label="Rename"
+              onSelect={() => {
+                closeMenu();
+                requestAnimationFrame(() => nameRef.current?.select());
+              }}
+            />
+            <MenuCaption>Colour</MenuCaption>
+            <div className="grid grid-cols-8 gap-1 px-2.5 pb-2 pt-0.5">
+              {PROJECT_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={project.color === c}
+                  aria-label={COLOR_NAMES[c] ?? c}
+                  title={COLOR_NAMES[c]}
+                  onClick={() => setProjectColor(project.id, c)}
+                  className="flex aspect-square items-center justify-center rounded-full outline-none ring-offset-2 transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-neutral-900"
+                  style={{ backgroundColor: c }}
+                >
+                  {project.color === c && <Check size={11} strokeWidth={3.2} className="text-white" />}
+                </button>
+              ))}
+            </div>
+            <MenuDivider />
+            {project.locked ? (
+              <>
+                <MenuRow
+                  icon={<Lock size={14} />}
+                  tone="warning"
+                  label="Lock now"
+                  onSelect={() => {
+                    closeMenu();
+                    void relockProject(project.id);
+                  }}
+                />
+                <MenuRow
+                  icon={<LockOpen size={14} />}
+                  label="Remove lock"
+                  onSelect={() => {
+                    closeMenu();
+                    removeProjectLock(project.id);
+                  }}
+                />
+              </>
+            ) : (
+              <MenuRow
+                icon={<Lock size={14} />}
+                label="Lock project"
+                onSelect={() => {
+                  closeMenu();
+                  setPanel("lock");
+                }}
+              />
+            )}
+            <MenuRow
+              icon={<Download size={14} />}
+              label="Download as ZIP"
+              onSelect={() => {
+                closeMenu();
+                download();
+              }}
+            />
+            <MenuDivider />
+            <MenuRow
+              icon={<Trash2 size={14} />}
+              tone="danger"
+              label="Delete project"
+              onSelect={() => {
+                closeMenu();
+                setPanel("delete");
+              }}
+            />
+          </DropdownMenu>
+        )}
+
+        {panel === "lock" && (
+          <div className="mx-1 mt-2">
+            <PinPrompt
+              title="Set a PIN to lock this project"
+              confirmLabel="Lock"
+              onCancel={() => setPanel(null)}
+              onSubmit={async (pin) => {
+                await lockProject(project.id, pin);
+                setPanel(null);
+                return true;
+              }}
+            />
+            <p className="mt-1.5 px-1 text-[11px] leading-relaxed text-neutral-400">
+              Every note in it is encrypted, titles included. Without the PIN they can't be recovered.
+            </p>
+          </div>
+        )}
+
+        {panel === "delete" && (
           <div role="alertdialog" aria-label="Delete project" className="mx-1 mt-2 rounded-2xl border border-red-100 bg-red-50/60 p-3">
             <p className="text-sm font-medium text-neutral-800">Delete “{project.name}”?</p>
             <p className="mt-0.5 text-xs leading-relaxed text-neutral-500">
-              {notes.length === 0
+              {count === 0
                 ? "The project is empty."
-                : notes.length === 1
-                  ? "Its note won't be deleted — it'll move to Notes."
-                  : `Its ${notes.length} notes won't be deleted — they'll move to Notes.`}
+                : `${count === 1 ? "Its note won't be deleted — it'll" : `Its ${count} notes won't be deleted — they'll`} move to Notes${project.locked ? " and won't be locked anymore" : ""}.`}
             </p>
             <div className="mt-2.5 flex justify-end gap-2">
               <button
                 type="button"
                 autoFocus
-                onClick={() => setConfirmDelete(false)}
+                onClick={() => setPanel(null)}
                 className="rounded-xl px-3 py-1.5 text-xs font-medium text-neutral-600 transition-colors hover:bg-white"
               >
                 Cancel
@@ -112,15 +263,20 @@ export default function ProjectView({ project }: { project: NoteProject }) {
         <div className="mt-2.5 flex items-center gap-2 px-1">
           <FileText size={13} className="text-neutral-400" />
           <span className="text-xs font-medium text-neutral-500">
-            {notes.length === 0 ? "No notes yet" : `${notes.length} note${notes.length === 1 ? "" : "s"}`}
+            {count === 0 ? "No notes yet" : `${count} note${count === 1 ? "" : "s"}`}
           </span>
+          {project.locked && (
+            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-600">
+              <Lock size={10} strokeWidth={2.6} /> Locks when you leave
+            </span>
+          )}
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-1">
-        {notes.length === 0 ? (
+        {count === 0 ? (
           <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-            <ProjectIcon color={project.color} size={48} />
+            <ProjectIcon color={project.color} size={48} locked={project.locked} />
             <p className="mt-3 text-sm font-medium text-neutral-700">Nothing in {project.name} yet</p>
             <p className="mt-1 text-xs leading-relaxed text-neutral-400">
               Create a note below, or bring existing notes here with the move button on any note.

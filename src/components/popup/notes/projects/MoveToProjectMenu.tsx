@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, FolderPlus, StickyNote } from "lucide-react";
+import { Check, FolderPlus, Lock, StickyNote } from "lucide-react";
 
 import DropdownMenu, { MenuCaption, MenuDivider, MenuRow } from "../menus/DropdownMenu";
 import ProjectIcon from "./ProjectIcon";
@@ -16,6 +16,7 @@ export default function MoveToProjectMenu({
   onClose: () => void;
 }) {
   const projects = useNotesStore((s) => s.projects);
+  const unlocked = useNotesStore((s) => s.unlockedProjectIds);
   const current = useNotesStore((s) => s.notes.find((n) => n.id === noteId)?.projectId ?? null);
   const moveNote = useNotesStore((s) => s.moveNote);
   const createProject = useNotesStore((s) => s.createProject);
@@ -45,17 +46,22 @@ export default function MoveToProjectMenu({
 
       {projects.length > 0 && (
         <div className="max-h-[220px] overflow-y-auto overscroll-contain">
-          {projects.map((p) => (
-            <MenuRow
-              key={p.id}
-              role="menuitemradio"
-              checked={current === p.id}
-              icon={<ProjectIcon color={p.color} size={28} />}
-              label={p.name}
-              trailing={current === p.id && check}
-              onSelect={() => pick(p.id)}
-            />
-          ))}
+          {projects.map((p) => {
+            const closed = Boolean(p.locked && !unlocked.includes(p.id));
+            return (
+              <MenuRow
+                key={p.id}
+                role="menuitemradio"
+                checked={current === p.id}
+                disabled={closed}
+                hint={closed ? "Locked — open the project to add notes" : undefined}
+                icon={<ProjectIcon color={p.color} size={28} locked={p.locked} />}
+                label={p.name}
+                trailing={current === p.id ? check : closed ? <Lock size={13} className="shrink-0 text-neutral-300" /> : null}
+                onSelect={() => pick(p.id)}
+              />
+            );
+          })}
         </div>
       )}
 

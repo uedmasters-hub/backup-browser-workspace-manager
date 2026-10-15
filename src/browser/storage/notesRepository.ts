@@ -20,3 +20,11 @@ export async function getNoteProjects(): Promise<NoteProject[]> {
 export async function saveNoteProjects(projects: NoteProject[]): Promise<void> {
   await chrome.storage.local.set({ [STORAGE_KEYS.NOTE_PROJECTS]: projects });
 }
+
+/** Notes and projects in one write — a locked project and its notes change together. */
+export async function saveNotesAndProjects(notes: Note[], projects: NoteProject[]): Promise<void> {
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.NOTES]: notes,
+    [STORAGE_KEYS.NOTE_PROJECTS]: projects,
+  });
+}

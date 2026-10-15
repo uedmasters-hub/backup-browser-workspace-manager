@@ -285,6 +285,7 @@ async function run() {
     const projectId = S().createProject("  eMedicalls  ");
     const project = () => S().projects.find((p) => p.id === projectId);
     check("createProject trims the name and gives it a colour", project()?.name === "eMedicalls" && /^#[0-9A-F]{6}$/i.test(project()!.color));
+    await new Promise((r) => setTimeout(r, 20)); // saves are queued
     check("projects persisted", Array.isArray(STORE.noteProjects) && (STORE.noteProjects as unknown[]).length === 1);
 
     const inProject = S().createNote(projectId);
@@ -327,6 +328,67 @@ async function run() {
     check("dangling projectId is cleared on load", S().notes[0].projectId === undefined);
 
     for (const id of [standaloneId, inProject, viaView, forcedStandalone]) S().deleteNote(id);
+  }
+
+  // ---- locked projects ----
+  {
+    const settle = () => new Promise((r) => setTimeout(r, 30));
+    const note = (id: string) => S().notes.find((n) => n.id === id);
+    const pid = S().createProject("Vault");
+    const a = S().createNote(pid);
+    S().updateNoteTitle(a, "Salary review");
+    S().updateBlock(S().notes.find((n) => n.id === a)!.blocks[0].id, { text: "Top secret plan" } as Partial<NoteBlock>);
+    S().closeNote();
+    const b = S().createNote(pid);
+    S().updateNoteTitle(b, "Separately locked");
+    await S().lockNote(b, "9999");
+    S().closeNote();
+    await settle();
+
+    S().openProject(pid);
+    await S().lockProject(pid, "2468");
+    const raw = JSON.stringify(STORE);
+    check("locking seals titles and content — nothing readable in storage",
+      !raw.includes("Salary review") && !raw.includes("Top secret plan") && !raw.includes("Separately locked"));
+    check("sealed project stored with ciphertext", Boolean((STORE.noteProjects as { id: string; sealed?: unknown }[]).find((p) => p.id === pid)?.sealed));
+    check("project stays open after locking (you're inside it)", S().unlockedProjectIds.includes(pid) && Boolean(note(a)));
+
+    S().openProject(undefined); // leaving locks it again (encryption runs in the background)
+    for (let i = 0; i < 200 && S().unlockedProjectIds.includes(pid); i++) await settle();
+    check("leaving the project locks it and drops its notes from memory",
+      !S().unlockedProjectIds.includes(pid) && !note(a) && !note(b));
+
+    const stray = S().createNote(null);
+    S().closeNote();
+    S().moveNote(stray, pid);
+    check("can't move a note into a closed locked project", note(stray)!.projectId === undefined);
+    check("createNote(closed locked project) stays standalone", note(S().createNote(pid))!.projectId === undefined);
+    S().closeNote();
+    S().deleteProject(pid);
+    check("can't delete a closed locked project", S().projects.some((p) => p.id === pid));
+
+    check("wrong PIN refused", (await S().unlockProject(pid, "0000")) === false && !note(a));
+    check("right PIN opens it", (await S().unlockProject(pid, "2468")) === true && note(a)?.title === "Salary review");
+    check("…content restored", (note(a)!.blocks[0] as { text: string }).text === "Top secret plan");
+    check("a locked note inside stays separately encrypted", note(b)!.locked === true && note(b)!.blocks.length === 0 && Boolean(note(b)!.cipher));
+
+    // edit while open, lock, reopen — edit survives
+    S().updateNoteTitle(a, "Salary review v2");
+    await S().relockProject(pid);
+    check("relock drops notes from memory", !note(a));
+    await S().unlockProject(pid, "2468");
+    check("edits made while open are sealed and come back", note(a)?.title === "Salary review v2");
+
+    S().removeProjectLock(pid);
+    for (let i = 0; i < 100 && JSON.stringify(STORE).includes('"sealed"'); i++) await settle();
+    const after = JSON.stringify(STORE);
+    check("removing the lock writes notes back in plain form",
+      after.includes("Salary review v2") && !(STORE.noteProjects as { id: string; sealed?: unknown; locked?: boolean }[]).find((p) => p.id === pid)?.sealed);
+    check("…and the individually locked note is still encrypted", !after.includes("Separately") || note(b)!.locked === true);
+
+    S().deleteProject(pid);
+    for (const id of [a, b, stray]) S().deleteNote(id);
+    for (const n of S().notes.filter((n) => !n.projectId && n.title === "")) S().deleteNote(n.id);
   }
 
   console.log(`\nRESULT: ${passed} passed, ${failed} failed`);

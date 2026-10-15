@@ -67,6 +67,10 @@ The app dock shows your most-visited sites as icons. It is built from your brows
 * Private (Incognito) tabs are never counted and never shown.
 * The only thing saved is the list of apps you chose to hide. The dock can be turned off from the ☰ menu.
 
+### Locked notes and projects
+
+Locking a note or a project encrypts its content on your device with a PIN you choose (AES-GCM, key derived with PBKDF2). For a locked project, every note in it — titles included — is stored only in encrypted form. The PIN is never stored; it's kept in memory only while the note or project is open. If you forget it, the content can't be recovered.
+
 ### Tab previews
 
 Hovering a tab in the popup shows a preview. To make this possible:

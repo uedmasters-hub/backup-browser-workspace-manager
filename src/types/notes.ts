@@ -76,6 +76,10 @@ export interface NoteProject {
   name: string;
   /** Accent colour for the project's icon (hex). */
   color: string;
+  /** Locked with a PIN: its notes (titles + content) live only inside `sealed`. */
+  locked?: boolean;
+  /** AES-GCM ciphertext of JSON.stringify(notes in the project). */
+  sealed?: SecretCipher;
   createdAt: number;
   updatedAt: number;
 }

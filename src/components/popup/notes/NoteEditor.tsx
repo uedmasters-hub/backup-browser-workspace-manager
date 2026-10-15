@@ -13,6 +13,7 @@ import { useNotesStore } from "../../../stores/notesStore";
 
 import BlockRenderer from "./blocks/BlockRenderer";
 import PinPrompt from "./PinPrompt";
+import LockGate from "./LockGate";
 import MoveToProjectMenu from "./projects/MoveToProjectMenu";
 import DropdownMenu, { MenuDivider, MenuRow } from "./menus/DropdownMenu";
 import { noteToText } from "./serialize";
@@ -72,12 +73,19 @@ export default function NoteEditor({ note }: { note: Note }) {
   // ----- Locked & hidden: a gate. No content, no export, no plain delete. -----
   if (secured) {
     return (
-      <LockedGate
+      <LockGate
         title={note.title}
+        subtitle="This note is encrypted. Enter your PIN to view, edit or export it."
+        backLabel="Back to notes"
         onBack={() => void closeNote()}
-        onReveal={(pin) => revealNote(note.id, pin)}
-        onDelete={(pin) => verifyNotePin(note.id, pin)}
-        deleteNote={() => deleteNote(note.id)}
+        onUnlock={(pin) => revealNote(note.id, pin)}
+        remove={{
+          toggleLabel: "Delete this note",
+          subtitle: "Enter your PIN to permanently delete this encrypted note.",
+          confirmLabel: "Delete note",
+          verify: (pin) => verifyNotePin(note.id, pin),
+          onRemoved: () => deleteNote(note.id),
+        }}
       />
     );
   }
@@ -208,156 +216,6 @@ export default function NoteEditor({ note }: { note: Note }) {
             <BlockRenderer key={block.id} block={block} />
           ))}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function LockedGate({
-  title,
-  onBack,
-  onReveal,
-  onDelete,
-  deleteNote,
-}: {
-  title: string;
-  onBack: () => void;
-  onReveal: (pin: string) => Promise<boolean>;
-  onDelete: (pin: string) => Promise<boolean>;
-  deleteNote: () => void;
-}) {
-  const [mode, setMode] = useState<"unlock" | "delete">("unlock");
-  const [pin, setPin] = useState("");
-  const [error, setError] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [shakeKey, setShakeKey] = useState(0);
-
-  const danger = mode === "delete";
-
-  async function submit() {
-    if (!pin || busy) {
-      return;
-    }
-    setBusy(true);
-    setError(false);
-    const ok =
-      mode === "unlock" ? await onReveal(pin) : await onDelete(pin);
-    setBusy(false);
-    if (ok) {
-      if (mode === "delete") {
-        deleteNote();
-      }
-      return;
-    }
-    setError(true);
-    setPin("");
-    setShakeKey((k) => k + 1);
-  }
-
-  return (
-    <div className="absolute inset-0 z-20 flex flex-col bg-white">
-      <div className="shrink-0 px-3 pt-4">
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Back to notes"
-          className="flex h-10 w-10 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100"
-        >
-          <ChevronLeft size={20} />
-        </button>
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-7 pb-10 text-center">
-        <div
-          className={[
-            "mb-5 flex h-16 w-16 items-center justify-center rounded-3xl ring-8 transition-colors",
-            danger
-              ? "bg-red-50 text-red-500 ring-red-50/60"
-              : "bg-amber-50 text-amber-500 ring-amber-50/60",
-          ].join(" ")}
-        >
-          <Lock size={28} strokeWidth={2.25} />
-        </div>
-
-        <h2 className="max-w-[17rem] truncate text-base font-semibold text-neutral-900">
-          {title.trim() || "Untitled"}
-        </h2>
-        <p className="mt-1.5 max-w-[15rem] text-xs leading-relaxed text-neutral-400">
-          {danger
-            ? "Enter your PIN to permanently delete this encrypted note."
-            : "This note is encrypted. Enter your PIN to view, edit or export it."}
-        </p>
-
-        <div key={shakeKey} className={error ? "animate-shake" : ""}>
-          <input
-            autoFocus
-            type="password"
-            inputMode="numeric"
-            value={pin}
-            onChange={(e) => {
-              setPin(e.target.value);
-              setError(false);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void submit();
-              }
-              if (e.key === "Escape") {
-                e.preventDefault();
-                onBack();
-              }
-            }}
-            placeholder="••••"
-            aria-label="PIN"
-            className={[
-              "mt-6 h-12 w-56 rounded-2xl border bg-white text-center text-lg tracking-[0.5em] text-neutral-900 outline-none transition-colors placeholder:tracking-[0.4em] placeholder:text-neutral-300",
-              error
-                ? "border-red-300 focus:border-red-400"
-                : "border-neutral-200 focus:border-neutral-900",
-            ].join(" ")}
-          />
-        </div>
-
-        <p
-          className={[
-            "mt-2 h-4 text-[11px] font-medium transition-opacity",
-            error ? "text-red-500 opacity-100" : "opacity-0",
-          ].join(" ")}
-        >
-          Incorrect PIN
-        </p>
-
-        <button
-          type="button"
-          onClick={() => void submit()}
-          disabled={!pin || busy}
-          className={[
-            "mt-3 h-11 w-56 rounded-2xl text-sm font-medium text-white transition-opacity disabled:opacity-40",
-            danger
-              ? "bg-red-600 hover:bg-red-700"
-              : "bg-neutral-900 hover:opacity-90",
-          ].join(" ")}
-        >
-          {mode === "unlock" ? "Unlock" : "Delete note"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setMode((m) => (m === "unlock" ? "delete" : "unlock"));
-            setPin("");
-            setError(false);
-          }}
-          className={[
-            "mt-4 text-xs font-medium transition-colors",
-            danger
-              ? "text-neutral-400 hover:text-neutral-700"
-              : "text-neutral-300 hover:text-red-500",
-          ].join(" ")}
-        >
-          {mode === "unlock" ? "Delete this note" : "Cancel"}
-        </button>
       </div>
     </div>
   );

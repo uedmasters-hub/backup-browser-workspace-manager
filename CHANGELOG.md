@@ -12,8 +12,15 @@
     inside it, and leaving a note returns to the project.
   - Move any note in or out — from the move button on a note row, or the
     project chip under a note's title — including straight into a new project.
-  - Rename a project in place. Deleting a project keeps its notes (they
-    become standalone).
+  - Project ⋮ menu: Rename · Colour · Lock project (or Lock now / Remove
+    lock) · Download as ZIP · Delete project. Deleting a project keeps its
+    notes (they become standalone).
+  - **Lock a project** with a PIN: all its notes — titles and content — are
+    sealed into the project with AES-GCM (same scheme as locked notes), so
+    nothing readable stays in storage, search or previews. Opening it asks
+    for the PIN; it locks again when you leave it, choose Lock now, or close
+    Notes. A closed locked project can't take new notes or be deleted.
+    Individually locked notes inside keep their own lock too.
   - Search looks across all notes and projects; results show each note's
     project.
   - **Download a project** as `<Project>.zip` containing one folder:

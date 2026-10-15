@@ -3,8 +3,7 @@ import { create } from "zustand";
 import {
   getNoteProjects,
   getNotes,
-  saveNoteProjects,
-  saveNotes,
+  saveNotesAndProjects,
 } from "../browser/storage/notesRepository";
 import { mergeTextBlocks, type RichPart } from "../components/popup/notes/richText";
 
@@ -57,12 +56,18 @@ let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
 // Session PIN for the currently revealed locked note (memory only).
 let revealPin: string | undefined;
+// PINs of locked projects opened this session (memory only).
+const projectPins = new Map<string, string>();
+// Saves run one after another, so a slower save never overwrites a newer one.
+let writeChain: Promise<void> = Promise.resolve();
 
 interface NotesState {
   notes: Note[];
   projects: NoteProject[];
   /** Project being browsed (list view); undefined = all notes. */
   activeProjectId?: string;
+  /** Locked projects opened (decrypted) this session. */
+  unlockedProjectIds: string[];
   activeNoteId?: string;
   query: string;
   loading: boolean;
@@ -85,6 +90,16 @@ interface NotesActions {
   openProject: (id: string | undefined) => void;
   /** Put a note in a project, or take it out (null). */
   moveNote: (noteId: string, projectId: string | null) => void;
+  setProjectColor: (id: string, color: string) => void;
+  /** Encrypt the project's notes with a PIN. It stays open until you leave it. */
+  lockProject: (id: string, pin: string) => Promise<void>;
+  /** Decrypt a locked project for this session. False = wrong PIN. */
+  unlockProject: (id: string, pin: string) => Promise<boolean>;
+  /** Seal an open locked project again and drop its notes from memory. */
+  relockProject: (id: string) => Promise<void>;
+  relockAllProjects: () => Promise<void>;
+  /** Stop encrypting the project (it must be open). */
+  removeProjectLock: (id: string) => void;
   deleteNote: (id: string) => void;
   lockNote: (id: string, pin: string) => Promise<void>;
   removeLock: (id: string) => void;
@@ -127,11 +142,14 @@ import {
 type NotesStore = NotesState & NotesActions;
 
 export const useNotesStore = create<NotesStore>((set, get) => {
-  // Never write plaintext for a locked note: encrypt the revealed note's
-  // blocks; keep ciphertext (and empty blocks) for locked notes at rest.
-  async function buildStorageSnapshot(): Promise<Note[]> {
-    const { notes, revealedId } = get();
-    return Promise.all(
+  // Never write plaintext for a locked note or a locked project:
+  // - a locked note's blocks are encrypted (revealed one re-encrypted with the
+  //   session PIN); at rest it keeps only ciphertext + empty blocks;
+  // - an open locked project re-seals all its notes (titles and content) into
+  //   `project.sealed`, and those notes are left out of the plain notes list.
+  async function buildStorageSnapshot(): Promise<{ notes: Note[]; projects: NoteProject[] }> {
+    const { notes, revealedId, projects } = get();
+    const atRest = await Promise.all(
       notes.map(async (n) => {
         if (!n.locked) {
           return n;
@@ -146,10 +164,52 @@ export const useNotesStore = create<NotesStore>((set, get) => {
         return { ...n, blocks: [] };
       })
     );
+
+    const sealedIds = new Set<string>();
+    const projectsAtRest = await Promise.all(
+      projects.map(async (p) => {
+        if (!p.locked) {
+          if (!p.sealed) return p;
+          const { sealed: _drop, ...plain } = p;
+          void _drop;
+          return plain;
+        }
+        const pin = projectPins.get(p.id);
+        // Closed: its notes aren't in memory — keep the existing ciphertext.
+        if (!pin) return p;
+        sealedIds.add(p.id);
+        const inside = atRest.filter((n) => n.projectId === p.id);
+        return { ...p, sealed: await encryptSecret(JSON.stringify(inside), pin) };
+      })
+    );
+
+    return {
+      notes: atRest.filter((n) => !(n.projectId && sealedIds.has(n.projectId))),
+      projects: projectsAtRest,
+    };
   }
 
-  async function persistNow() {
-    await saveNotes(await buildStorageSnapshot());
+  function persistNow(): Promise<void> {
+    writeChain = writeChain
+      .then(async () => {
+        const snapshot = await buildStorageSnapshot();
+        await saveNotesAndProjects(snapshot.notes, snapshot.projects);
+        // Keep the fresh ciphertext in memory too — it's what unlocking checks.
+        const sealed = new Map(
+          snapshot.projects.filter((p) => p.locked && p.sealed).map((p) => [p.id, p.sealed])
+        );
+        if (sealed.size) {
+          set((state) => ({
+            projects: state.projects.map((p) =>
+              p.locked && sealed.has(p.id) && p.sealed !== sealed.get(p.id)
+                ? { ...p, sealed: sealed.get(p.id) }
+                : p
+            ),
+          }));
+        }
+      })
+      .catch((error) => console.error("[notes] save failed", error));
+    return writeChain;
   }
 
   function persist() {
@@ -215,13 +275,23 @@ export const useNotesStore = create<NotesStore>((set, get) => {
   }
 
   function saveProjects() {
-    void saveNoteProjects(get().projects);
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = undefined;
+    }
+    void persistNow();
+  }
+
+  function isClosedLocked(projectId: string | undefined): boolean {
+    const p = projectId ? get().projects.find((x) => x.id === projectId) : undefined;
+    return Boolean(p?.locked && !projectPins.has(p.id));
   }
 
   return {
     notes: [],
     projects: [],
     activeProjectId: undefined,
+    unlockedProjectIds: [],
     activeNoteId: undefined,
     query: "",
     loading: false,
@@ -229,6 +299,8 @@ export const useNotesStore = create<NotesStore>((set, get) => {
     revealedId: undefined,
 
     loadNotes: async () => {
+      // Reloading starts with every locked project closed again.
+      if (projectPins.size) await get().relockAllProjects();
       set({ loading: true });
       const [notes, projects] = await Promise.all([getNotes(), getNoteProjects()]);
       const ids = new Set(projects.map((p) => p.id));
@@ -250,7 +322,9 @@ export const useNotesStore = create<NotesStore>((set, get) => {
 
     createNote: (projectId) => {
       const first = createBlock("text");
-      const target = projectId === undefined ? get().activeProjectId : projectId ?? undefined;
+      let target = projectId === undefined ? get().activeProjectId : projectId ?? undefined;
+      if (isClosedLocked(target)) target = undefined; // sealed — open it first
+
       const note: Note = {
         id: uid(),
         title: "",
@@ -293,7 +367,11 @@ export const useNotesStore = create<NotesStore>((set, get) => {
     },
 
     deleteProject: (id) => {
+      // A closed locked project can't be emptied — its notes are sealed.
+      if (isClosedLocked(id)) return;
+      projectPins.delete(id);
       set((state) => ({
+        unlockedProjectIds: state.unlockedProjectIds.filter((x) => x !== id),
         projects: state.projects.filter((p) => p.id !== id),
         notes: state.notes.map((n) =>
           n.projectId === id ? { ...n, projectId: undefined } : n
@@ -302,14 +380,104 @@ export const useNotesStore = create<NotesStore>((set, get) => {
           state.activeProjectId === id ? undefined : state.activeProjectId,
       }));
       saveProjects();
-      persist();
     },
 
     openProject: (id) => {
+      const leaving = get().activeProjectId;
+      // Leaving an open locked project locks it again.
+      if (leaving && leaving !== id && projectPins.has(leaving)) {
+        void get().relockProject(leaving);
+      }
       set({ activeProjectId: id, query: "" });
     },
 
+    setProjectColor: (id, color) => {
+      set((state) => ({
+        projects: state.projects.map((p) => (p.id === id ? { ...p, color } : p)),
+      }));
+      saveProjects();
+    },
+
+    lockProject: async (id, pin) => {
+      projectPins.set(id, pin);
+      set((state) => ({
+        projects: state.projects.map((p) =>
+          p.id === id ? { ...p, locked: true, updatedAt: Date.now() } : p
+        ),
+        unlockedProjectIds: [...new Set([...state.unlockedProjectIds, id])],
+      }));
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = undefined;
+      }
+      await persistNow();
+    },
+
+    unlockProject: async (id, pin) => {
+      const project = get().projects.find((p) => p.id === id);
+      if (!project?.locked) return true;
+      if (!project.sealed) return false; // nothing to check the PIN against
+      try {
+        const inside = JSON.parse(await decryptSecret(project.sealed, pin)) as Note[];
+        projectPins.set(id, pin);
+        set((state) => {
+          const ids = new Set(inside.map((n) => n.id));
+          return {
+            notes: [...state.notes.filter((n) => !ids.has(n.id)), ...inside.map((n) => ({ ...n, projectId: id }))],
+            unlockedProjectIds: [...new Set([...state.unlockedProjectIds, id])],
+          };
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+
+    relockProject: async (id) => {
+      if (!projectPins.has(id)) return;
+      const { activeNoteId, notes, revealedId } = get();
+      const active = notes.find((n) => n.id === activeNoteId);
+      // A revealed locked note inside is secured first.
+      if (revealedId && notes.find((n) => n.id === revealedId)?.projectId === id) {
+        await flushAndHide();
+      }
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = undefined;
+      }
+      await persistNow(); // seals the project with its current notes
+      projectPins.delete(id);
+      set((state) => ({
+        notes: state.notes.filter((n) => n.projectId !== id),
+        unlockedProjectIds: state.unlockedProjectIds.filter((x) => x !== id),
+        activeNoteId: active?.projectId === id ? undefined : state.activeNoteId,
+      }));
+    },
+
+    relockAllProjects: async () => {
+      for (const id of [...projectPins.keys()]) {
+        await get().relockProject(id);
+      }
+    },
+
+    removeProjectLock: (id) => {
+      if (!projectPins.has(id)) return;
+      projectPins.delete(id);
+      set((state) => ({
+        projects: state.projects.map((p) => {
+          if (p.id !== id) return p;
+          const { sealed: _drop, ...plain } = p;
+          void _drop;
+          return { ...plain, locked: false, updatedAt: Date.now() };
+        }),
+        unlockedProjectIds: state.unlockedProjectIds.filter((x) => x !== id),
+      }));
+      saveProjects();
+    },
+
     moveNote: (noteId, projectId) => {
+      // A closed locked project can't take new notes (its PIN is needed to seal them).
+      if (isClosedLocked(projectId ?? undefined)) return;
       const target = projectId && get().projects.some((p) => p.id === projectId) ? projectId : undefined;
       set((state) => ({
         notes: state.notes.map((n) => {
@@ -323,8 +491,7 @@ export const useNotesStore = create<NotesStore>((set, get) => {
           ? state.projects.map((p) => (p.id === target ? { ...p, updatedAt: Date.now() } : p))
           : state.projects,
       }));
-      if (target) saveProjects();
-      persist();
+      saveProjects();
     },
 
     deleteNote: (id) => {

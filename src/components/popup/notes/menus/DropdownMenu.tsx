@@ -130,6 +130,8 @@ export function MenuRow({
   tone = "default",
   role = "menuitem",
   checked,
+  disabled = false,
+  hint,
 }: {
   icon: ReactNode;
   label: ReactNode;
@@ -138,6 +140,9 @@ export function MenuRow({
   tone?: "default" | "danger" | "warning";
   role?: "menuitem" | "menuitemradio";
   checked?: boolean;
+  disabled?: boolean;
+  /** Tooltip — e.g. why it's disabled. */
+  hint?: string;
 }) {
   const tile = {
     default: "bg-neutral-100 text-neutral-500",
@@ -149,10 +154,15 @@ export function MenuRow({
       type="button"
       role={role}
       aria-checked={role === "menuitemradio" ? Boolean(checked) : undefined}
+      aria-disabled={disabled || undefined}
+      disabled={disabled}
+      title={hint}
       onClick={onSelect}
       className={[
         "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm outline-none transition-colors",
-        tone === "danger"
+        disabled
+          ? "cursor-not-allowed text-neutral-400"
+          : tone === "danger"
           ? "text-red-600 hover:bg-red-50 focus-visible:bg-red-50"
           : "text-neutral-800 hover:bg-neutral-100 focus-visible:bg-neutral-100",
       ].join(" ")}

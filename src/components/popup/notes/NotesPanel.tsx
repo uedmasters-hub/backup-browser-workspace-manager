@@ -23,6 +23,8 @@ export default function NotesPanel() {
   useEffect(() => {
     void loadNotes();
     void loadEditor(); // warm it up while the list is showing
+    // Closing Notes locks every open locked project again.
+    return () => void useNotesStore.getState().relockAllProjects();
   }, [loadNotes]);
 
   if (activeNoteId && activeNote) {
