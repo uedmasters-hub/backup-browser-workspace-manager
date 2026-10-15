@@ -1,13 +1,31 @@
 import { create } from "zustand";
 
-import { getNotes, saveNotes } from "../browser/storage/notesRepository";
+import {
+  getNoteProjects,
+  getNotes,
+  saveNoteProjects,
+  saveNotes,
+} from "../browser/storage/notesRepository";
 import { mergeTextBlocks, type RichPart } from "../components/popup/notes/richText";
 
 import type {
   Note,
   NoteBlock,
   NoteBlockType,
+  NoteProject,
 } from "../types/notes";
+
+/** Soft accents for project icons, picked in turn. */
+export const PROJECT_COLORS = [
+  "#6366F1",
+  "#0EA5E9",
+  "#10B981",
+  "#F59E0B",
+  "#EC4899",
+  "#8B5CF6",
+  "#EF4444",
+  "#14B8A6",
+];
 
 function uid(): string {
   return crypto.randomUUID();
@@ -42,6 +60,9 @@ let revealPin: string | undefined;
 
 interface NotesState {
   notes: Note[];
+  projects: NoteProject[];
+  /** Project being browsed (list view); undefined = all notes. */
+  activeProjectId?: string;
   activeNoteId?: string;
   query: string;
   loading: boolean;
@@ -54,7 +75,16 @@ interface NotesActions {
   loadNotes: () => Promise<void>;
   setQuery: (query: string) => void;
 
-  createNote: () => string;
+  /** New note — inside `projectId`, or the open project, or standalone. */
+  createNote: (projectId?: string | null) => string;
+  createProject: (name: string) => string;
+  renameProject: (id: string, name: string) => void;
+  /** Removes the project; its notes are kept as standalone notes. */
+  deleteProject: (id: string) => void;
+  /** Browse a project (undefined = back to all notes). */
+  openProject: (id: string | undefined) => void;
+  /** Put a note in a project, or take it out (null). */
+  moveNote: (noteId: string, projectId: string | null) => void;
   deleteNote: (id: string) => void;
   lockNote: (id: string, pin: string) => Promise<void>;
   removeLock: (id: string) => void;
@@ -184,8 +214,14 @@ export const useNotesStore = create<NotesStore>((set, get) => {
     persist();
   }
 
+  function saveProjects() {
+    void saveNoteProjects(get().projects);
+  }
+
   return {
     notes: [],
+    projects: [],
+    activeProjectId: undefined,
     activeNoteId: undefined,
     query: "",
     loading: false,
@@ -194,20 +230,34 @@ export const useNotesStore = create<NotesStore>((set, get) => {
 
     loadNotes: async () => {
       set({ loading: true });
-      const notes = await getNotes();
-      set({ notes, loading: false });
+      const [notes, projects] = await Promise.all([getNotes(), getNoteProjects()]);
+      const ids = new Set(projects.map((p) => p.id));
+      set((state) => ({
+        // A note pointing at a project that no longer exists is standalone.
+        notes: notes.map((n) =>
+          n.projectId && !ids.has(n.projectId) ? { ...n, projectId: undefined } : n
+        ),
+        projects,
+        loading: false,
+        activeProjectId:
+          state.activeProjectId && ids.has(state.activeProjectId)
+            ? state.activeProjectId
+            : undefined,
+      }));
     },
 
     setQuery: (query) => set({ query }),
 
-    createNote: () => {
+    createNote: (projectId) => {
       const first = createBlock("text");
+      const target = projectId === undefined ? get().activeProjectId : projectId ?? undefined;
       const note: Note = {
         id: uid(),
         title: "",
         blocks: [first],
         createdAt: Date.now(),
         updatedAt: Date.now(),
+        ...(target ? { projectId: target } : {}),
       };
       set((state) => ({
         notes: [note, ...state.notes],
@@ -217,6 +267,64 @@ export const useNotesStore = create<NotesStore>((set, get) => {
       }));
       persist();
       return note.id;
+    },
+
+    createProject: (name) => {
+      const { projects } = get();
+      const project: NoteProject = {
+        id: uid(),
+        name: name.trim() || "Untitled project",
+        color: PROJECT_COLORS[projects.length % PROJECT_COLORS.length],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      set({ projects: [project, ...projects] });
+      saveProjects();
+      return project.id;
+    },
+
+    renameProject: (id, name) => {
+      set((state) => ({
+        projects: state.projects.map((p) =>
+          p.id === id ? { ...p, name, updatedAt: Date.now() } : p
+        ),
+      }));
+      saveProjects();
+    },
+
+    deleteProject: (id) => {
+      set((state) => ({
+        projects: state.projects.filter((p) => p.id !== id),
+        notes: state.notes.map((n) =>
+          n.projectId === id ? { ...n, projectId: undefined } : n
+        ),
+        activeProjectId:
+          state.activeProjectId === id ? undefined : state.activeProjectId,
+      }));
+      saveProjects();
+      persist();
+    },
+
+    openProject: (id) => {
+      set({ activeProjectId: id, query: "" });
+    },
+
+    moveNote: (noteId, projectId) => {
+      const target = projectId && get().projects.some((p) => p.id === projectId) ? projectId : undefined;
+      set((state) => ({
+        notes: state.notes.map((n) => {
+          if (n.id !== noteId || n.projectId === target) return n;
+          const { projectId: _old, ...rest } = n;
+          void _old;
+          // Moving isn't an edit — the note keeps its place in time.
+          return target ? { ...rest, projectId: target } : rest;
+        }),
+        projects: target
+          ? state.projects.map((p) => (p.id === target ? { ...p, updatedAt: Date.now() } : p))
+          : state.projects,
+      }));
+      if (target) saveProjects();
+      persist();
     },
 
     deleteNote: (id) => {

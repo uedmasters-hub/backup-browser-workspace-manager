@@ -70,9 +70,21 @@ export type NoteBlock =
   | DividerBlock
   | PasswordBlock;
 
+/** A folder-like group of related notes (e.g. one product or initiative). */
+export interface NoteProject {
+  id: string;
+  name: string;
+  /** Accent colour for the project's icon (hex). */
+  color: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface Note {
   id: string;
   title: string;
+  /** The project this note belongs to; absent for standalone notes. */
+  projectId?: string;
   blocks: NoteBlock[];
   createdAt: number;
   updatedAt: number;

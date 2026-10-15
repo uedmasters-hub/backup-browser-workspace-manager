@@ -1,59 +1,90 @@
-import { useState } from "react";
-import { Lock, Plus, Search, StickyNote, Trash2, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronRight, Folder, FolderPlus, Plus, Search, StickyNote, X } from "lucide-react";
 
 import { useUIStore } from "../../../stores/uiStore";
 import { useNotesStore } from "../../../stores/notesStore";
 
-import PinPrompt from "./PinPrompt";
+import NoteRow from "./NoteRow";
+import ProjectIcon from "./projects/ProjectIcon";
+import { ago, matchesQuery } from "./noteMeta";
 
-import type { Note } from "../../../types/notes";
+import type { Note, NoteProject } from "../../../types/notes";
 
-function preview(note: Note): string {
-  for (const block of note.blocks) {
-    if (block.type === "text" && block.text.trim()) return block.text.trim();
-    if (block.type === "callout" && block.text.trim()) return block.text.trim();
-    if (block.type === "checklist") {
-      const first = block.items.find((i) => i.text.trim());
-      if (first) return first.text.trim();
-    }
-    if (block.type === "link" && (block.label || block.url))
-      return block.label || block.url;
-  }
-  return "Empty note";
+type ProjectSummary = { project: NoteProject; count: number; lastActive: number };
+
+function SectionLabel({ icon, label, count }: { icon: React.ReactNode; label: string; count: number }) {
+  return (
+    <div className="mb-1 mt-3 flex items-center gap-2 px-1 first:mt-1">
+      {icon}
+      <span className="text-xs font-medium text-neutral-500">
+        {label}
+        {count > 0 ? ` · ${count}` : ""}
+      </span>
+    </div>
+  );
 }
 
-function ago(ts: number): string {
-  const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 60) return "just now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  return d === 1 ? "yesterday" : `${d}d ago`;
+function ProjectRow({ summary, onOpen }: { summary: ProjectSummary; onOpen: () => void }) {
+  const { project, count, lastActive } = summary;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5 text-left transition-colors hover:border-neutral-200 hover:bg-neutral-50"
+    >
+      <ProjectIcon color={project.color} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium text-neutral-800">{project.name}</span>
+        <span className="block truncate text-xs text-neutral-400">
+          {count === 0 ? "No notes yet" : `${count} note${count === 1 ? "" : "s"}`} · {ago(lastActive)}
+        </span>
+      </span>
+      <ChevronRight size={16} className="shrink-0 text-neutral-300" />
+    </button>
+  );
 }
 
+/** All notes: projects first, then standalone notes. Search looks everywhere. */
 export default function NotesList() {
   const closeNotes = useUIStore((s) => s.closeNotes);
 
   const notes = useNotesStore((s) => s.notes);
+  const projects = useNotesStore((s) => s.projects);
   const query = useNotesStore((s) => s.query);
   const setQuery = useNotesStore((s) => s.setQuery);
-  const openNote = useNotesStore((s) => s.openNote);
-  const deleteNote = useNotesStore((s) => s.deleteNote);
   const createNote = useNotesStore((s) => s.createNote);
-  const verifyNotePin = useNotesStore((s) => s.verifyNotePin);
+  const createProject = useNotesStore((s) => s.createProject);
+  const openProject = useNotesStore((s) => s.openProject);
 
-  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [newProject, setNewProject] = useState<string | null>(null);
+
+  const summaries = useMemo<ProjectSummary[]>(
+    () =>
+      projects
+        .map((project) => {
+          const inside = notes.filter((n) => n.projectId === project.id);
+          return {
+            project,
+            count: inside.length,
+            lastActive: Math.max(project.updatedAt, ...inside.map((n) => n.updatedAt)),
+          };
+        })
+        .sort((a, b) => b.lastActive - a.lastActive),
+    [projects, notes]
+  );
+  const standalone = useMemo<Note[]>(() => notes.filter((n) => !n.projectId), [notes]);
 
   const q = query.trim().toLowerCase();
-  const filtered = q
-    ? notes.filter(
-        (n) =>
-          n.title.toLowerCase().includes(q) ||
-          preview(n).toLowerCase().includes(q)
-      )
-    : notes;
+  const foundProjects = q ? summaries.filter((s) => s.project.name.toLowerCase().includes(q)) : [];
+  const foundNotes = q ? notes.filter((n) => matchesQuery(n, q)) : [];
+
+  const empty = notes.length === 0 && projects.length === 0 && newProject === null;
+
+  const submitProject = () => {
+    const name = (newProject ?? "").trim();
+    setNewProject(null);
+    if (name) openProject(createProject(name));
+  };
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col bg-white">
@@ -72,104 +103,126 @@ export default function NotesList() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search notes…"
+              placeholder="Search notes and projects…"
               className="w-full bg-transparent text-sm outline-none placeholder:text-neutral-300"
             />
           </div>
         </div>
-        <div className="mt-2.5 flex items-center gap-2 px-1">
-          <StickyNote size={13} className="text-neutral-400" />
-          <span className="text-xs font-medium text-neutral-500">
-            Notes{notes.length > 0 ? ` · ${notes.length}` : ""}
-          </span>
-        </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-1">
-        {notes.length === 0 ? (
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-2">
+        {empty ? (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-400">
               <StickyNote size={22} />
             </div>
             <p className="text-sm font-medium text-neutral-700">No notes yet</p>
             <p className="mt-1 text-xs leading-relaxed text-neutral-400">
-              Notes are shared across every window. Create your first one below.
+              Notes are shared across every window. Create a note, or a project to group related notes.
             </p>
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="py-16 text-center text-sm text-neutral-400">
-            No notes match “{query}”.
-          </div>
-        ) : (
-          <div className="space-y-1.5 py-1">
-            {filtered.map((note) => (
-              <div key={note.id} className="group/note relative">
-                <button
-                  type="button"
-                  onClick={() => openNote(note.id)}
-                  className="w-full rounded-2xl border border-transparent px-3 py-3 text-left transition-colors hover:border-neutral-200 hover:bg-neutral-50"
-                >
-                  <p className="flex items-center gap-1.5 truncate pr-7 text-sm font-medium text-neutral-800">
-                    {note.locked && (
-                      <Lock
-                        size={12}
-                        className="shrink-0 text-amber-500"
-                        aria-label="Locked"
-                      />
-                    )}
-                    <span className="truncate">
-                      {note.title.trim() || "Untitled"}
-                    </span>
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-neutral-400">
-                    {note.locked ? "Locked · encrypted" : preview(note)}
-                  </p>
-                  <p className="mt-1 text-[11px] text-neutral-300">
-                    {ago(note.updatedAt)}
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    note.locked ? setPendingId(note.id) : deleteNote(note.id)
-                  }
-                  aria-label="Delete note"
-                  className="absolute right-2 top-2.5 rounded-lg p-1.5 text-neutral-300 opacity-0 transition-opacity hover:bg-white hover:text-red-500 group-hover/note:opacity-100"
-                >
-                  <Trash2 size={14} />
-                </button>
-
-                {pendingId === note.id && (
-                  <div className="px-1 pb-2 pt-1">
-                    <PinPrompt
-                      title="Enter PIN to delete this locked note"
-                      confirmLabel="Delete"
-                      tone="danger"
-                      onCancel={() => setPendingId(null)}
-                      onSubmit={async (pin) => {
-                        const ok = await verifyNotePin(note.id, pin);
-                        if (ok) {
-                          deleteNote(note.id);
-                          setPendingId(null);
-                        }
-                        return ok;
-                      }}
-                    />
+        ) : q ? (
+          foundProjects.length + foundNotes.length === 0 ? (
+            <div className="py-16 text-center text-sm text-neutral-400">Nothing matches “{query}”.</div>
+          ) : (
+            <div className="py-1">
+              {foundProjects.length > 0 && (
+                <>
+                  <SectionLabel icon={<Folder size={13} className="text-neutral-400" />} label="Projects" count={foundProjects.length} />
+                  <div className="space-y-1">
+                    {foundProjects.map((s) => (
+                      <ProjectRow key={s.project.id} summary={s} onOpen={() => openProject(s.project.id)} />
+                    ))}
                   </div>
-                )}
+                </>
+              )}
+              {foundNotes.length > 0 && (
+                <>
+                  <SectionLabel icon={<StickyNote size={13} className="text-neutral-400" />} label="Notes" count={foundNotes.length} />
+                  <div className="space-y-1.5">
+                    {foundNotes.map((n) => (
+                      <NoteRow key={n.id} note={n} showProject />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )
+        ) : (
+          <div className="py-1">
+            {(summaries.length > 0 || newProject !== null) && (
+              <>
+                <SectionLabel icon={<Folder size={13} className="text-neutral-400" />} label="Projects" count={summaries.length} />
+                <div className="space-y-1">
+                  {newProject !== null && (
+                    <form
+                      className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2.5"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        submitProject();
+                      }}
+                    >
+                      <ProjectIcon color="#a3a3a3" />
+                      <input
+                        autoFocus
+                        value={newProject}
+                        onChange={(e) => setNewProject(e.target.value)}
+                        onBlur={submitProject}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            e.preventDefault();
+                            setNewProject(null);
+                          }
+                        }}
+                        placeholder="Project name, e.g. eMedicalls"
+                        aria-label="New project name"
+                        maxLength={80}
+                        className="min-w-0 flex-1 bg-transparent text-sm font-medium text-neutral-800 outline-none placeholder:font-normal placeholder:text-neutral-400"
+                      />
+                    </form>
+                  )}
+                  {summaries.map((s) => (
+                    <ProjectRow key={s.project.id} summary={s} onOpen={() => openProject(s.project.id)} />
+                  ))}
+                </div>
+              </>
+            )}
+
+            <SectionLabel icon={<StickyNote size={13} className="text-neutral-400" />} label="Notes" count={standalone.length} />
+            {standalone.length === 0 ? (
+              <p className="px-1 py-3 text-xs text-neutral-400">
+                No standalone notes — every note is in a project.
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {standalone.map((n) => (
+                  <NoteRow key={n.id} note={n} />
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
 
-      <div className="shrink-0 border-t border-neutral-100 bg-white px-4 py-3">
+      <div className="flex shrink-0 gap-2 border-t border-neutral-100 bg-white px-4 py-3">
         <button
           type="button"
-          onClick={() => createNote()}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-neutral-900 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          onClick={() => createNote(null)}
+          className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-neutral-900 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
         >
           <Plus size={16} /> New note
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setQuery("");
+            setNewProject("");
+          }}
+          title="New project"
+          aria-label="New project"
+          className="flex items-center justify-center gap-2 rounded-2xl border border-neutral-200 px-4 py-3 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+        >
+          <FolderPlus size={16} /> Project
         </button>
       </div>
     </div>

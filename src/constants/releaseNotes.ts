@@ -8,6 +8,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Notes now support rich text: bold, italic, headings, lists, sizes and more.",
     "Select text to see the formatting toolbar — it stays hidden otherwise.",
     "Pasting from Docs, Word or the web keeps formatting and drops the clutter.",
+    "Projects: group related notes, move notes in and out, download as a ZIP.",
   ],
   "1.2.2": [
     "New app dock: your most-visited apps as sharp icons under the window cards.",

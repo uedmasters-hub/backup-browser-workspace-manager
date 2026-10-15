@@ -3,6 +3,7 @@ export const STORAGE_KEYS = {
   FAVORITE_TABS: "favoriteTabs",
   TAB_SORT_MODE: "tabSortMode",
   NOTES: "workspaceNotes",
+  NOTE_PROJECTS: "noteProjects",
   LAST_SYNCED: "lastSyncedAt",
   FLOATER_ENABLED: "floaterEnabled",
   FLOATER_NOTE: "floaterNote",

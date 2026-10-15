@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import {
+  ChevronDown,
   ChevronLeft,
+  FolderInput,
   Download,
   Lock,
   LockOpen,
@@ -11,6 +13,7 @@ import { useNotesStore } from "../../../stores/notesStore";
 
 import BlockRenderer from "./blocks/BlockRenderer";
 import PinPrompt from "./PinPrompt";
+import MoveToProjectMenu from "./projects/MoveToProjectMenu";
 import { noteToText } from "./serialize";
 
 import type { Note } from "../../../types/notes";
@@ -28,6 +31,10 @@ export default function NoteEditor({ note }: { note: Note }) {
   const revealedId = useNotesStore((s) => s.revealedId);
 
   const [mode, setMode] = useState<null | "lock">(null);
+  const [moveAnchor, setMoveAnchor] = useState<DOMRect | null>(null);
+  const project = useNotesStore((s) =>
+    note.projectId ? s.projects.find((p) => p.id === note.projectId) : undefined
+  );
 
   const locked = Boolean(note.locked);
   const revealed = revealedId === note.id;
@@ -128,6 +135,33 @@ export default function NoteEditor({ note }: { note: Note }) {
           >
             <Trash2 size={17} />
           </button>
+        </div>
+
+        <div className="ml-11 mt-0.5 flex">
+          <button
+            type="button"
+            onClick={(e) => setMoveAnchor(e.currentTarget.getBoundingClientRect())}
+            aria-haspopup="menu"
+            aria-expanded={Boolean(moveAnchor)}
+            title={project ? "Move to another project" : "Add this note to a project"}
+            className={[
+              "inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-0.5 text-xs transition-colors",
+              project
+                ? "bg-neutral-100 font-medium text-neutral-600 hover:bg-neutral-200/70"
+                : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600",
+            ].join(" ")}
+          >
+            {project ? (
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: project.color }} />
+            ) : (
+              <FolderInput size={12} className="shrink-0" />
+            )}
+            <span className="truncate">{project ? project.name : "Add to project"}</span>
+            <ChevronDown size={12} className="shrink-0 opacity-60" />
+          </button>
+          {moveAnchor && (
+            <MoveToProjectMenu noteId={note.id} anchor={moveAnchor} onClose={() => setMoveAnchor(null)} />
+          )}
         </div>
 
         {mode === "lock" && (

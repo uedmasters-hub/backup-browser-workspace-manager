@@ -1,9 +1,32 @@
 # Changelog
 
-## v1.2.3 — 2026-10-15
+## Unreleased
 
 ### Added
 
+- **Projects in Notes.** Group related notes under a project (e.g.
+  "eMedicalls") while standalone notes work exactly as before.
+  - Notes shows Projects first (name, note count, last activity), then
+    standalone notes. "Project" next to "New note" creates one.
+  - Opening a project lists its notes; "New note in …" creates the note
+    inside it, and leaving a note returns to the project.
+  - Move any note in or out — from the move button on a note row, or the
+    project chip under a note's title — including straight into a new project.
+  - Rename a project in place. Deleting a project keeps its notes (they
+    become standalone).
+  - Search looks across all notes and projects; results show each note's
+    project.
+  - **Download a project** as `<Project>.zip` containing one folder:
+    `<Project>.html` (every note fully formatted, with a table of contents —
+    opens in any browser) and one Markdown file per note (`01 Title.md`, …,
+    in the project's order, dated with each note's last edit). Markdown keeps
+    headings, lists, bold/italic, links, checklists (`- [x]`), callouts (as
+    `> [!NOTE]`-style alerts), dividers; underline/highlight as inline HTML.
+    Locked notes stay encrypted — listed, but their content isn't exported.
+    Exported HTML is rebuilt from an allow-list and carries a strict
+    Content-Security-Policy, so an export can't run code.
+  - Projects are stored with your notes and included in backups.
+  - New harness: project export (13 checks); notes harness +16 checks.
 - **Rich text in Notes.** Text and Callout blocks are now formatted editors.
   - A formatting toolbar floats over selected text and stays hidden otherwise:
     text style (Normal, Heading 1–3) and size (Small/Default/Large/Huge) ·

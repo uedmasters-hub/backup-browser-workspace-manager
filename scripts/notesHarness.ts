@@ -276,6 +276,59 @@ async function run() {
     S().deleteNote(legacy);
   }
 
+  // ---- projects ----
+  {
+    const note = (id: string) => S().notes.find((n) => n.id === id);
+    const standaloneId = S().createNote(null);
+    check("a new note is standalone by default", note(standaloneId)!.projectId === undefined);
+
+    const projectId = S().createProject("  eMedicalls  ");
+    const project = () => S().projects.find((p) => p.id === projectId);
+    check("createProject trims the name and gives it a colour", project()?.name === "eMedicalls" && /^#[0-9A-F]{6}$/i.test(project()!.color));
+    check("projects persisted", Array.isArray(STORE.noteProjects) && (STORE.noteProjects as unknown[]).length === 1);
+
+    const inProject = S().createNote(projectId);
+    check("createNote(projectId) puts the note in the project", note(inProject)!.projectId === projectId);
+    S().closeNote();
+
+    S().openProject(projectId);
+    const viaView = S().createNote();
+    check("New note while browsing a project lands in it", note(viaView)!.projectId === projectId);
+    S().closeNote();
+    check("closing a note keeps you in the project", S().activeProjectId === projectId);
+    const forcedStandalone = S().createNote(null);
+    check("createNote(null) stays standalone even inside a project view", note(forcedStandalone)!.projectId === undefined);
+    S().closeNote();
+    S().openProject(undefined);
+
+    const before = note(standaloneId)!.updatedAt;
+    await new Promise((r) => setTimeout(r, 5));
+    S().moveNote(standaloneId, projectId);
+    check("moveNote into a project", note(standaloneId)!.projectId === projectId);
+    check("moving isn't an edit (note keeps its time)", note(standaloneId)!.updatedAt === before);
+    S().moveNote(standaloneId, null);
+    check("moveNote(null) takes it out", note(standaloneId)!.projectId === undefined && !("projectId" in note(standaloneId)!));
+    S().moveNote(standaloneId, "no-such-project");
+    check("moving to an unknown project leaves it standalone", note(standaloneId)!.projectId === undefined);
+
+    S().renameProject(projectId, "eMedicalls v2");
+    check("renameProject", project()?.name === "eMedicalls v2");
+
+    S().openProject(projectId);
+    S().deleteProject(projectId);
+    check("deleteProject removes the project", !project());
+    check("…but keeps its notes, now standalone", note(inProject)!.projectId === undefined && note(viaView)!.projectId === undefined);
+    check("…and leaves the project view", S().activeProjectId === undefined);
+
+    // A note pointing at a vanished project is treated as standalone on load.
+    STORE.workspaceNotes = [{ id: "orphan", title: "x", blocks: [], createdAt: 1, updatedAt: 1, projectId: "gone" }];
+    STORE.noteProjects = [];
+    await S().loadNotes();
+    check("dangling projectId is cleared on load", S().notes[0].projectId === undefined);
+
+    for (const id of [standaloneId, inProject, viaView, forcedStandalone]) S().deleteNote(id);
+  }
+
   console.log(`\nRESULT: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
 }

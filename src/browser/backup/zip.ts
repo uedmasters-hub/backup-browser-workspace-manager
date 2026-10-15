@@ -53,8 +53,23 @@ function pushBytes(out: number[], bytes: Uint8Array) {
 
 const UTF8_FLAG = 0x0800;
 
-/** Build a ZIP archive (STORE) from name -> bytes. */
-export function zipStore(files: Record<string, Uint8Array>): Uint8Array {
+/** MS-DOS time/date words for a local Date (ZIP stores local time, 2s steps). */
+function dosDateTime(date: Date | undefined): [number, number] {
+  if (!date || Number.isNaN(date.getTime()) || date.getFullYear() < 1980) return [0, 0x21];
+  const time = (date.getHours() << 11) | (date.getMinutes() << 5) | (date.getSeconds() >> 1);
+  const day = ((date.getFullYear() - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
+  return [time, day];
+}
+
+/**
+ * Build a ZIP archive (STORE) from name -> bytes. Use "folder/file" names for
+ * folders. `dates` optionally stamps files with a modification time
+ * (default 1980-01-01).
+ */
+export function zipStore(
+  files: Record<string, Uint8Array>,
+  dates: Record<string, Date> = {}
+): Uint8Array {
   const local: number[] = [];
   const central: number[] = [];
   const entries = Object.entries(files);
@@ -63,14 +78,15 @@ export function zipStore(files: Record<string, Uint8Array>): Uint8Array {
     const nameBytes = strToU8(name);
     const crc = crc32(data);
     const offset = local.length;
+    const [modTime, modDate] = dosDateTime(dates[name]);
 
     // Local file header.
     pushU32(local, 0x04034b50);
     pushU16(local, 20); // version needed
     pushU16(local, UTF8_FLAG);
     pushU16(local, 0); // method: store
-    pushU16(local, 0); // mod time
-    pushU16(local, 0x21); // mod date (1980-01-01)
+    pushU16(local, modTime);
+    pushU16(local, modDate);
     pushU32(local, crc);
     pushU32(local, data.length); // compressed size
     pushU32(local, data.length); // uncompressed size
@@ -85,8 +101,8 @@ export function zipStore(files: Record<string, Uint8Array>): Uint8Array {
     pushU16(central, 20); // version needed
     pushU16(central, UTF8_FLAG);
     pushU16(central, 0); // method
-    pushU16(central, 0); // mod time
-    pushU16(central, 0x21); // mod date
+    pushU16(central, modTime);
+    pushU16(central, modDate);
     pushU32(central, crc);
     pushU32(central, data.length);
     pushU32(central, data.length);
