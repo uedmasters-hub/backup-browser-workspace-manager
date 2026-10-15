@@ -8,6 +8,7 @@ import {
 } from "../commands";
 import { registerSnapshotCapture } from "./snapshots";
 import { registerUpdateNotices } from "./updates";
+import { registerAutoGroup } from "./autoGroup";
 
 const COMMAND_CONFIG = {
   [FOCUS_SEARCH_COMMAND]: {
@@ -22,6 +23,7 @@ const COMMAND_CONFIG = {
 
 registerSnapshotCapture();
 registerUpdateNotices();
+registerAutoGroup();
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log("Browser Workspace Manager installed");

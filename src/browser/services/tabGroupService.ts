@@ -83,8 +83,12 @@ export async function getTabGroups(
 export async function createTabGroup(
   tabIds: number[]
 ): Promise<number> {
+  const ids = requireTabIds(tabIds);
+  // Keep the group in the tabs' own window (Chrome defaults to the focused one).
+  const { windowId } = await chrome.tabs.get(ids[0]);
   const groupId = await (chrome.tabs.group({
-    tabIds: requireTabIds(tabIds),
+    tabIds: ids,
+    createProperties: { windowId },
   }) as Promise<number>);
 
   await chrome.tabGroups.update(groupId, {
@@ -133,6 +137,35 @@ export async function groupTabsByIds(
   await moveGroupToFront(groupId);
 
   await chrome.windows.update(targetWindow, { focused: true });
+
+  return groupId;
+}
+
+/**
+ * Group tabs that are already in one window, without focusing it (used by
+ * Auto Group Tabs from the background). The tabs keep the order given; the
+ * new group goes first in the window, after pinned tabs.
+ */
+export async function groupTabsInWindow(
+  tabIds: number[],
+  title: string,
+  color?: TabGroupColor
+): Promise<number> {
+  const ids = requireTabIds(tabIds);
+  // Without a window, Chrome makes the group in the focused window — and
+  // moves the tabs there.
+  const { windowId } = await chrome.tabs.get(ids[0]);
+  const groupId = await (chrome.tabs.group({
+    tabIds: ids,
+    createProperties: { windowId },
+  }) as Promise<number>);
+
+  await chrome.tabGroups.update(groupId, {
+    title: title.trim() || "Group",
+    ...(color ? { color } : {}),
+  });
+
+  await moveGroupToFront(groupId);
 
   return groupId;
 }

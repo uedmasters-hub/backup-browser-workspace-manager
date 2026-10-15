@@ -92,3 +92,39 @@ export function sortTabs(
     }
   });
 }
+
+/** Most recent activity in a set of tabs (newest tab wins). */
+function newestOf(tabs: WorkspaceTab[]): number {
+  return tabs.reduce(
+    (max, tab) => Math.max(max, tab.lastAccessed ?? 0),
+    0
+  );
+}
+
+/**
+ * Order groups to match the tab sort: Chrome order as in the tab strip,
+ * titles alphabetically, "oldest" oldest-first — and otherwise the group with
+ * the newest tab first, so what you just opened is at the top.
+ */
+export function sortGroups<G extends { title: string; firstIndex: number }>(
+  entries: Array<{ group: G; tabs: WorkspaceTab[] }>,
+  mode: TabSortMode
+): Array<{ group: G; tabs: WorkspaceTab[] }> {
+  const byIndex = (a: { group: G }, b: { group: G }) =>
+    a.group.firstIndex - b.group.firstIndex;
+
+  return [...entries].sort((a, b) => {
+    switch (mode) {
+      case "chrome-order":
+        return byIndex(a, b);
+      case "title-asc":
+        return a.group.title.localeCompare(b.group.title) || byIndex(a, b);
+      case "title-desc":
+        return b.group.title.localeCompare(a.group.title) || byIndex(a, b);
+      case "oldest":
+        return newestOf(a.tabs) - newestOf(b.tabs) || byIndex(a, b);
+      default:
+        return newestOf(b.tabs) - newestOf(a.tabs) || byIndex(a, b);
+    }
+  });
+}

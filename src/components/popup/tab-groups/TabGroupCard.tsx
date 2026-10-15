@@ -240,7 +240,10 @@ export default function TabGroupCard({
                 <button
                   type="button"
                   disabled={!canMoveLeft}
-                  onClick={() => void moveGroup(group.id, "left")}
+                  onClick={() => {
+                    onUseManualOrder();
+                    void moveGroup(group.id, "left");
+                  }}
                   className="flex items-center justify-center gap-1 rounded-lg px-2 py-2 text-xs text-neutral-600 hover:bg-neutral-100 disabled:opacity-30"
                 >
                   <ChevronLeft size={14} />
@@ -249,7 +252,10 @@ export default function TabGroupCard({
                 <button
                   type="button"
                   disabled={!canMoveRight}
-                  onClick={() => void moveGroup(group.id, "right")}
+                  onClick={() => {
+                    onUseManualOrder();
+                    void moveGroup(group.id, "right");
+                  }}
                   className="flex items-center justify-center gap-1 rounded-lg px-2 py-2 text-xs text-neutral-600 hover:bg-neutral-100 disabled:opacity-30"
                 >
                   Right

@@ -21,6 +21,7 @@ import { useSearchStore } from "../stores/searchStore";
 import { useUIStore } from "../stores/uiStore";
 import { useTabStore } from "../stores/tabStore";
 import { useMediaStore } from "../stores/mediaStore";
+import { useAutoGroupStore } from "../stores/autoGroupStore";
 
 import NotesPanel from "../components/popup/notes/NotesPanel";
 import TabPreviewCard from "../components/popup/preview/TabPreviewCard";
@@ -34,6 +35,11 @@ export default function App() {
 
   useEffect(() => {
     ProviderRegistry.initialize();
+
+    // Auto Group Tabs: the setting, and (until the user decides) the suggestion.
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      void useAutoGroupStore.getState().load();
+    }
 
     // Refresh the hover-preview snapshot of the page behind the popup.
     if (typeof chrome !== "undefined" && chrome.tabs) {

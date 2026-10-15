@@ -10,6 +10,7 @@ import {
   Search,
   StickyNote,
   LayoutGrid,
+  Layers,
   Upload,
   VenetianMask,
   X,
@@ -22,6 +23,7 @@ import { STORAGE_KEYS } from "../../constants/storageKeys";
 
 import { useSearchStore } from "../../stores/searchStore";
 import { useAppDockStore } from "../../stores/appDockStore";
+import { useAutoGroupStore } from "../../stores/autoGroupStore";
 import {
   PRIVATE_LABEL,
   openExtensionSettings,
@@ -122,6 +124,10 @@ export default function Header() {
   const dockHidden = useAppDockStore((state) => state.hidden.length);
   const setDockOn = useAppDockStore((state) => state.setEnabled);
   const restoreDockApps = useAppDockStore((state) => state.restoreHidden);
+  const autoGroupSupported = useAutoGroupStore((state) => state.supported);
+  const autoGroupOn = useAutoGroupStore((state) => state.mode === "on");
+  const autoGroupBusy = useAutoGroupStore((state) => state.busy !== null);
+  const setAutoGroupOn = useAutoGroupStore((state) => state.setEnabled);
   const [importError, setImportError] = useState<string | null>(null);
 
   const showSearch = query.trim().length > 0 || focused;
@@ -568,6 +574,52 @@ export default function Header() {
           className="mb-1 ml-[60px] text-[11px] font-medium text-teal-700 hover:text-teal-800"
         >
           Show {dockHidden} hidden app{dockHidden > 1 ? "s" : ""} again
+        </button>
+      )}
+
+      {autoGroupSupported && (
+        <button
+          type="button"
+          onClick={() => {
+            if (autoGroupBusy) return;
+            // Turning it on groups open tabs now — close the menu to show the result.
+            if (!autoGroupOn) setMenuOpen(false);
+            void setAutoGroupOn(!autoGroupOn);
+          }}
+          role="menuitemcheckbox"
+          aria-checked={autoGroupOn}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-neutral-100"
+        >
+          <span
+            className={[
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+              autoGroupOn ? "bg-indigo-50 text-indigo-600" : "bg-neutral-100 text-neutral-700",
+            ].join(" ")}
+          >
+            <Layers size={17} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-neutral-800">
+              Auto-group tabs
+            </span>
+            <span className="block truncate text-[11px] text-neutral-400">
+              Sort tabs into groups by what they're about
+            </span>
+          </span>
+          <span
+            aria-hidden
+            className={[
+              "relative h-[18px] w-8 shrink-0 rounded-full transition-colors",
+              autoGroupOn ? "bg-indigo-600" : "bg-neutral-200",
+            ].join(" ")}
+          >
+            <span
+              className={[
+                "absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-all",
+                autoGroupOn ? "left-[15px]" : "left-0.5",
+              ].join(" ")}
+            />
+          </span>
         </button>
       )}
 

@@ -9,6 +9,7 @@ import { useWindowStore } from "../../stores/windowStore";
 import { useTabStore } from "../../stores/tabStore";
 import { useUIStore } from "../../stores/uiStore";
 import {
+  sortGroups,
   sortTabs,
   type TabSortMode,
 } from "../../stores/selectors/tabSelectors";
@@ -49,21 +50,20 @@ export default function UntitledSection() {
     );
   });
 
-  // Groups first, ordered by their position; ungrouped tabs after.
-  const orderedGroups = groups
-    .slice()
-    .sort((a, b) => a.firstIndex - b.firstIndex)
-    .map((group) => ({
+  // Groups first (newest first, or as the sort says); ungrouped tabs after.
+  const orderedGroups = sortGroups(
+    groups.map((group) => ({
       group,
       tabs: sortTabs(
         matchingTabs.filter((tab) => tab.groupId === group.id),
         sortMode
       ),
-    }))
-    .filter(
-      ({ tabs: groupTabs }) =>
-        groupTabs.length > 0 || !searchQuery.trim()
-    );
+    })),
+    sortMode
+  ).filter(
+    ({ tabs: groupTabs }) =>
+      groupTabs.length > 0 || !searchQuery.trim()
+  );
 
   const ungroupedTabs = sortTabs(
     matchingTabs.filter((tab) => tab.groupId === -1),
@@ -94,13 +94,14 @@ export default function UntitledSection() {
         </div>
       ) : (
         <>
-          {orderedGroups.map(({ group, tabs: groupTabs }, index) => (
+          {orderedGroups.map(({ group, tabs: groupTabs }) => (
             <TabGroupCard
               key={group.id}
               group={group}
               tabs={groupTabs}
-              canMoveLeft={index > 0}
-              canMoveRight={index < orderedGroups.length - 1}
+              // Left/Right move the group in the tab strip (Chrome order).
+              canMoveLeft={groups.some((g) => g.firstIndex < group.firstIndex)}
+              canMoveRight={groups.some((g) => g.firstIndex > group.firstIndex)}
               onUseManualOrder={useManualOrder}
             />
           ))}

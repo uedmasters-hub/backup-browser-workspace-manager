@@ -5,6 +5,8 @@
  */
 export const RELEASE_NOTES: Record<string, string[]> = {
   "1.2.3": [
+    "Auto Group Tabs: tabs sorted into groups by topic — Work, Design, Travel and more.",
+    "New tabs join the right group as they load. Move one yourself and it stays put.",
     "Notes now support rich text: bold, italic, headings, lists, sizes and more.",
     "Select text to see the formatting toolbar — it stays hidden otherwise.",
     "Pasting from Docs, Word or the web keeps formatting and drops the clutter.",
