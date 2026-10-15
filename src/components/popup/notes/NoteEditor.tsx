@@ -20,6 +20,7 @@ export default function NoteEditor({ note }: { note: Note }) {
   const deleteNote = useNotesStore((s) => s.deleteNote);
   const updateNoteTitle = useNotesStore((s) => s.updateNoteTitle);
   const ensureTrailingBlock = useNotesStore((s) => s.ensureTrailingBlock);
+  const normalizeTextBlocks = useNotesStore((s) => s.normalizeTextBlocks);
   const lockNote = useNotesStore((s) => s.lockNote);
   const removeLock = useNotesStore((s) => s.removeLock);
   const revealNote = useNotesStore((s) => s.revealNote);
@@ -39,6 +40,12 @@ export default function NoteEditor({ note }: { note: Note }) {
       ensureTrailingBlock();
     }
   }, [secured, note.blocks.length, ensureTrailingBlock]);
+
+  // Older notes kept one line per Text block; join neighbours once on open so
+  // formatting and selection work across lines.
+  useEffect(() => {
+    if (!secured) normalizeTextBlocks();
+  }, [secured, note.id, normalizeTextBlocks]);
 
   function download() {
     const text = noteToText(note);
@@ -139,7 +146,10 @@ export default function NoteEditor({ note }: { note: Note }) {
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6 pt-3">
+      <div
+        data-notes-scroll
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6 pt-3"
+      >
         <div
           className="space-y-1.5 py-1"
           onBlur={() => ensureTrailingBlock()}

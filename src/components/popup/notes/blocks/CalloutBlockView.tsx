@@ -1,10 +1,12 @@
 import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import { EditorContent } from "@tiptap/react";
 
 import BlockShell from "./BlockShell";
-import LinkifiedTextarea from "./LinkifiedTextarea";
+import FormatToolbar from "../rich/FormatToolbar";
+import { useRichEditor } from "../rich/useRichEditor";
 import { useCopy } from "../useCopy";
 import { isBlockEmpty } from "../blockTypes";
-import { useEffect } from "react";
+import { blockHtml } from "../richText";
 
 import { useNotesStore } from "../../../../stores/notesStore";
 import type {
@@ -46,10 +48,22 @@ export default function CalloutBlockView({
   const consumeFocus = useNotesStore((s) => s.consumeFocus);
   const [copied, copy] = useCopy();
 
-  const autoFocus = focusBlockId === block.id;
-  useEffect(() => {
-    if (autoFocus) consumeFocus();
-  }, [autoFocus, consumeFocus]);
+  const editor = useRichEditor({
+    variant: "callout",
+    html: blockHtml(block),
+    placeholder: "Callout…",
+    autoFocus: focusBlockId === block.id,
+    onAutoFocused: consumeFocus,
+    onChange: (part) => updateBlock(block.id, part),
+    onKeyDown: (event, ed) => {
+      // Backspace in an empty callout turns it back into a plain line.
+      if (event.key === "Backspace" && ed.isEmpty) {
+        transformBlock(block.id, "text");
+        return true;
+      }
+      return false;
+    },
+  });
 
   const tone = TONES[block.tone];
   const Icon = tone.Icon;
@@ -59,10 +73,12 @@ export default function CalloutBlockView({
     updateBlock(block.id, { tone: next });
   }
 
+  if (!editor) return null;
+
   return (
     <BlockShell
       id={block.id}
-      onCopy={() => copy(block.text)}
+      onCopy={() => copy(block.text, block.html)}
       copied={copied}
       empty={isBlockEmpty(block)}
     >
@@ -80,20 +96,10 @@ export default function CalloutBlockView({
         >
           <Icon size={16} />
         </button>
-        <LinkifiedTextarea
-          value={block.text}
-          onChange={(text) => updateBlock(block.id, { text })}
-          onKeyDown={(e) => {
-            // Backspace in an empty callout turns it back into a plain line.
-            if (e.key === "Backspace" && block.text === "") {
-              e.preventDefault();
-              transformBlock(block.id, "text");
-            }
-          }}
-          placeholder="Callout…"
-          autoFocus={autoFocus}
-          className="text-sm leading-relaxed text-neutral-700"
-        />
+        <div className="min-w-0 flex-1">
+          <EditorContent editor={editor} />
+          <FormatToolbar editor={editor} variant="callout" suppress={() => false} />
+        </div>
       </div>
     </BlockShell>
   );

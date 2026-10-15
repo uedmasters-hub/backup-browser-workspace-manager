@@ -20,7 +20,7 @@ export function noteToText(note: Note): string {
         lines.push(`${block.label || block.url}: ${block.url}`, "");
         break;
       case "callout":
-        lines.push(`> ${block.text}`, "");
+        lines.push(...block.text.split("\n").map((l) => `> ${l}`.trimEnd()), "");
         break;
       case "divider":
         lines.push("---", "");

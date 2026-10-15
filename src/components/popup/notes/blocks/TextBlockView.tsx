@@ -1,142 +1,163 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { EditorContent } from "@tiptap/react";
+import type { Editor } from "@tiptap/react";
+import { getHTMLFromFragment } from "@tiptap/core";
+import { Fragment } from "@tiptap/pm/model";
+import type { Node as PMNode } from "@tiptap/pm/model";
 
 import BlockShell from "./BlockShell";
-import LinkifiedTextarea from "./LinkifiedTextarea";
 import SlashMenu from "../SlashMenu";
+import FormatToolbar from "../rich/FormatToolbar";
+import { useRichEditor } from "../rich/useRichEditor";
 import { useCopy } from "../useCopy";
 import { filterBlockTypes, isBlockEmpty } from "../blockTypes";
+import { blockHtml, docToPlainText, type RichJSON, type RichPart } from "../richText";
 import { useNotesStore } from "../../../../stores/notesStore";
 
-import type {
-  NoteBlockType,
-  TextBlock,
-} from "../../../../types/notes";
+import type { NoteBlockType, TextBlock } from "../../../../types/notes";
+
+type Slash = { query: string; anchor: DOMRect; from: number; to: number; index: number };
+
+/** "/query" typed alone on an empty top-level line, caret at its end. */
+function readSlash(editor: Editor): Slash | null {
+  const { selection } = editor.state;
+  const { $from } = selection;
+  if (!selection.empty || $from.depth !== 1 || $from.parent.type.name !== "paragraph") return null;
+  if ($from.parentOffset !== $from.parent.content.size) return null;
+  const m = $from.parent.textContent.match(/^\/(\w*)$/);
+  if (!m) return null;
+  const c = editor.view.coordsAtPos($from.pos);
+  return {
+    query: m[1],
+    anchor: DOMRect.fromRect({ x: c.left, y: c.top, width: 1, height: c.bottom - c.top }),
+    from: $from.start(),
+    to: $from.end(),
+    index: $from.index(0),
+  };
+}
+
+function partOf(editor: Editor, nodes: PMNode[]): RichPart | null {
+  if (!nodes.length) return null;
+  const text = docToPlainText({ type: "doc", content: nodes.map((n) => n.toJSON() as RichJSON) });
+  if (!text.trim()) return null;
+  return { html: getHTMLFromFragment(Fragment.fromArray(nodes), editor.schema), text };
+}
 
 export default function TextBlockView({ block }: { block: TextBlock }) {
   const updateBlock = useNotesStore((s) => s.updateBlock);
-  const transformBlock = useNotesStore((s) => s.transformBlock);
-  const addLineAfter = useNotesStore((s) => s.addLineAfter);
+  const splitTextBlock = useNotesStore((s) => s.splitTextBlock);
   const deleteBlockFocusPrev = useNotesStore((s) => s.deleteBlockFocusPrev);
   const focusBlockId = useNotesStore((s) => s.focusBlockId);
   const consumeFocus = useNotesStore((s) => s.consumeFocus);
   const blockCount = useNotesStore(
-    (s) =>
-      s.notes.find((n) => n.id === s.activeNoteId)?.blocks.length ?? 0
+    (s) => s.notes.find((n) => n.id === s.activeNoteId)?.blocks.length ?? 0
   );
 
   const [copied, copy] = useCopy();
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const [slashQuery, setSlashQuery] = useState<string | null>(null);
+  const [slash, setSlash] = useState<Slash | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const slashRef = useRef<Slash | null>(null);
+  const activeRef = useRef(0);
+  useLayoutEffect(() => {
+    slashRef.current = slash;
+    activeRef.current = activeIndex;
+  });
 
-  // close the slash menu if the list scrolls (keeps it anchored correctly)
-  useEffect(() => {
-    if (slashQuery === null) return;
-    function close() {
-      setSlashQuery(null);
-    }
-    window.addEventListener("scroll", close, true);
-    return () => window.removeEventListener("scroll", close, true);
-  }, [slashQuery]);
+  const syncSlash = useCallback((editor: Editor) => {
+    const next = editor.isFocused ? readSlash(editor) : null;
+    setSlash((prev) => {
+      if (!next) return null;
+      if (!prev || prev.query !== next.query) setActiveIndex(0);
+      return next;
+    });
+  }, []);
 
-  // autofocus when this block was just created
-  useEffect(() => {
-    if (focusBlockId === block.id && ref.current) {
-      ref.current.focus();
-      const end = ref.current.value.length;
-      ref.current.setSelectionRange(end, end);
-      consumeFocus();
-    }
-  }, [focusBlockId, block.id, consumeFocus]);
-
-  function onChange(value: string) {
-    updateBlock(block.id, { text: value });
-    const match = value.match(/^\/(\w*)$/);
-    if (match) {
-      setAnchorRect(ref.current?.getBoundingClientRect() ?? null);
-      setSlashQuery(match[1]);
-      setActiveIndex(0);
-    } else {
-      setSlashQuery(null);
-    }
-  }
-
-  function pick(type: NoteBlockType) {
-    setSlashQuery(null);
-    if (type === "text") {
-      updateBlock(block.id, { text: "" });
-    } else {
-      transformBlock(block.id, type);
-    }
-  }
-
-  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (slashQuery !== null) {
-      const items = filterBlockTypes(slashQuery);
-      if (items.length) {
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          setActiveIndex((i) => (i + 1) % items.length);
-          return;
-        }
-        if (e.key === "ArrowUp") {
-          e.preventDefault();
-          setActiveIndex((i) => (i - 1 + items.length) % items.length);
-          return;
-        }
-        if (e.key === "Enter") {
-          e.preventDefault();
-          pick(items[activeIndex].type);
-          return;
-        }
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setSlashQuery(null);
-        updateBlock(block.id, { text: "" });
+  const pick = useCallback(
+    (type: NoteBlockType, editor: Editor) => {
+      const current = slashRef.current ?? readSlash(editor);
+      setSlash(null);
+      if (!current) return;
+      if (type === "text") {
+        editor.chain().focus().deleteRange({ from: current.from, to: current.to }).run();
         return;
       }
-    }
+      const before: PMNode[] = [];
+      const after: PMNode[] = [];
+      editor.state.doc.forEach((node, _offset, i) => {
+        if (i < current.index) before.push(node);
+        else if (i > current.index) after.push(node);
+      });
+      splitTextBlock(block.id, partOf(editor, before), type, partOf(editor, after));
+    },
+    [block.id, splitTextBlock]
+  );
 
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      // Never stack blank lines: Enter on an empty block does nothing.
-      if (block.text.trim() !== "") {
-        addLineAfter(block.id);
+  const editor = useRichEditor({
+    variant: "full",
+    html: blockHtml(block),
+    placeholder: "Write something, or press “/” for blocks…",
+    autoFocus: focusBlockId === block.id,
+    onAutoFocused: consumeFocus,
+    onChange: (part) => updateBlock(block.id, part),
+    onSelectionChange: syncSlash,
+    onKeyDown: (event, ed) => {
+      const current = slashRef.current;
+      if (current) {
+        const items = filterBlockTypes(current.query);
+        if (items.length && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+          const d = event.key === "ArrowDown" ? 1 : -1;
+          setActiveIndex((i) => (i + d + items.length) % items.length);
+          return true;
+        }
+        if (items.length && (event.key === "Enter" || event.key === "Tab")) {
+          pick(items[Math.min(activeRef.current, items.length - 1)].type, ed);
+          return true;
+        }
+        if (event.key === "Escape") {
+          setSlash(null);
+          ed.chain().deleteRange({ from: current.from, to: current.to }).run();
+          return true;
+        }
       }
-      return;
-    }
+      // Backspace in an empty block removes it (unless it's the only one).
+      if (event.key === "Backspace" && ed.isEmpty && blockCount > 1) {
+        deleteBlockFocusPrev(block.id);
+        return true;
+      }
+      return false;
+    },
+  });
 
-    if (e.key === "Backspace" && block.text === "" && blockCount > 1) {
-      e.preventDefault();
-      deleteBlockFocusPrev(block.id);
-    }
-  }
+  // Close the slash menu when the note scrolls or the block loses focus.
+  useEffect(() => {
+    if (!slash) return;
+    const close = () => setSlash(null);
+    window.addEventListener("scroll", close, true);
+    editor?.on("blur", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      editor?.off("blur", close);
+    };
+  }, [slash, editor]);
+
+  if (!editor) return null;
 
   return (
     <BlockShell
       id={block.id}
-      onCopy={() => copy(block.text)}
+      onCopy={() => copy(block.text, block.html)}
       copied={copied}
       empty={isBlockEmpty(block)}
     >
       <div className="relative">
-        <LinkifiedTextarea
-          textareaRef={ref}
-          value={block.text}
-          placeholder="Write something, or press “/” for blocks…"
-          onChange={onChange}
-          onKeyDown={onKeyDown}
-          onBlur={() => setTimeout(() => setSlashQuery(null), 120)}
-          className="px-2 py-1.5 text-[15px] leading-relaxed text-neutral-800"
-        />
-        {slashQuery !== null && (
+        <EditorContent editor={editor} />
+        <FormatToolbar editor={editor} variant="full" suppress={() => slashRef.current !== null} />
+        {slash && (
           <SlashMenu
-            query={slashQuery}
+            query={slash.query}
             activeIndex={activeIndex}
-            anchor={anchorRect}
-            onPick={pick}
+            anchor={slash.anchor}
+            onPick={(type) => pick(type, editor)}
             onHover={setActiveIndex}
           />
         )}

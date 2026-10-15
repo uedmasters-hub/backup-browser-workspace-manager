@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { getNotes, saveNotes } from "../browser/storage/notesRepository";
+import { mergeTextBlocks, type RichPart } from "../components/popup/notes/richText";
 
 import type {
   Note,
@@ -68,6 +69,18 @@ interface NotesActions {
   addLineAfter: (id: string) => string;
   ensureTrailingBlock: () => void;
   transformBlock: (id: string, type: NoteBlockType) => void;
+  /**
+   * Slash menu inside a Text block: keep what's above (`before`), insert the
+   * chosen block, then what's below (`after`) as a new Text block.
+   */
+  splitTextBlock: (
+    id: string,
+    before: RichPart | null,
+    type: NoteBlockType,
+    after: RichPart | null
+  ) => void;
+  /** Join neighbouring Text blocks (older notes kept one line per block). */
+  normalizeTextBlocks: () => void;
   updateBlock: (id: string, patch: Partial<NoteBlock>) => void;
   deleteBlock: (id: string) => void;
   deleteBlockFocusPrev: (id: string) => void;
@@ -147,14 +160,24 @@ export const useNotesStore = create<NotesStore>((set, get) => {
     );
   }
 
-  /** Map the active note's blocks, bumping updatedAt. */
-  function mutateActive(fn: (blocks: NoteBlock[]) => NoteBlock[]) {
+  /**
+   * Map the active note's blocks, bumping updatedAt — unless `touch` is false
+   * (tidy-ups that aren't the user's edits, so the note doesn't jump to the top).
+   */
+  function mutateActive(
+    fn: (blocks: NoteBlock[]) => NoteBlock[],
+    { touch = true }: { touch?: boolean } = {}
+  ) {
     const { activeNoteId } = get();
     if (!activeNoteId) return;
     set((state) => ({
       notes: state.notes.map((note) =>
         note.id === activeNoteId
-          ? { ...note, blocks: fn(note.blocks), updatedAt: Date.now() }
+          ? {
+              ...note,
+              blocks: fn(note.blocks),
+              updatedAt: touch ? Date.now() : note.updatedAt,
+            }
           : note
       ),
     }));
@@ -341,8 +364,9 @@ export const useNotesStore = create<NotesStore>((set, get) => {
       return block.id;
     },
 
-    // Keeps a single empty text block at the end so there is always a place
-    // to type after any block — no Enter required. Idempotent + no focus steal.
+    // There's always somewhere to type at the end: a Text block holds many
+    // lines, so one is only added after a non-text block (checklist, link,
+    // divider…). Extra trailing empty lines are dropped. No focus steal.
     ensureTrailingBlock: () => {
       const note = activeNote();
       if (!note) return;
@@ -356,20 +380,17 @@ export const useNotesStore = create<NotesStore>((set, get) => {
       while (end > 0 && isEmptyText(blocks[end - 1])) {
         end -= 1;
       }
-      const trailingEmpties = blocks.length - end;
-
-      // Exactly one trailing empty line already → nothing to do.
-      if (trailingEmpties === 1) {
+      const lastMeaningful = blocks[end - 1];
+      const needsLine = !lastMeaningful || lastMeaningful.type !== "text";
+      const wanted = needsLine ? 1 : 0;
+      if (blocks.length - end === wanted) {
         return;
       }
 
       const head = blocks.slice(0, end);
-      // Keep the first existing trailing empty (preserves focus/id) or make one.
-      const tail =
-        trailingEmpties >= 1 ? [blocks[end]] : [createBlock("text")];
-      const next = [...head, ...tail];
-
-      mutateActive(() => next);
+      // Reuse the first existing trailing empty (keeps its id/focus) or make one.
+      const tail = needsLine ? [blocks[end] ?? createBlock("text")] : [];
+      mutateActive(() => [...head, ...tail]);
     },
 
     transformBlock: (id, type) => {
@@ -377,6 +398,34 @@ export const useNotesStore = create<NotesStore>((set, get) => {
         blocks.map((b) => (b.id === id ? createBlock(type, id) : b))
       );
       if (isFocusable(type)) set({ focusBlockId: id });
+    },
+
+    splitTextBlock: (id, before, type, after) => {
+      let focusId: string | undefined;
+      mutateActive((blocks) => {
+        const i = blocks.findIndex((b) => b.id === id);
+        if (i < 0) return blocks;
+        const created = createBlock(type, before ? uid() : id);
+        const replacement: NoteBlock[] = [];
+        if (before) {
+          replacement.push({ id, type: "text", text: before.text, html: before.html });
+        }
+        replacement.push(created);
+        if (after) {
+          replacement.push({ id: uid(), type: "text", text: after.text, html: after.html });
+        }
+        focusId = created.id;
+        const out = [...blocks];
+        out.splice(i, 1, ...replacement);
+        return out;
+      });
+      if (focusId && isFocusable(type)) set({ focusBlockId: focusId });
+    },
+
+    normalizeTextBlocks: () => {
+      const note = activeNote();
+      if (!note || mergeTextBlocks(note.blocks) === note.blocks) return;
+      mutateActive(mergeTextBlocks, { touch: false });
     },
 
     updateBlock: (id, patch) => {
@@ -388,7 +437,8 @@ export const useNotesStore = create<NotesStore>((set, get) => {
     },
 
     deleteBlock: (id) => {
-      mutateActive((blocks) => blocks.filter((b) => b.id !== id));
+      // Removing e.g. a divider between two Text blocks joins them.
+      mutateActive((blocks) => mergeTextBlocks(blocks.filter((b) => b.id !== id)));
     },
 
     deleteBlockFocusPrev: (id) => {

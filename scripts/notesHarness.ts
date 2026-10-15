@@ -187,23 +187,93 @@ async function run() {
     S().ensureTrailingBlock();
     check("empty note keeps exactly one block", blocks().length === 1);
 
-    // content -> gets exactly one trailing empty
+    // a Text block with content holds many lines — no extra empty line after it
     S().updateBlock(blocks()[0].id, { text: "hello" } as Partial<NoteBlock>);
     S().ensureTrailingBlock();
+    check("text with content needs no trailing empty line", blocks().length === 1);
+
+    // stray empty lines after a Text block are tidied away
+    S().addBlockAfter(blocks()[0].id, "text");
+    S().addBlockAfter(blocks()[1].id, "text");
+    check("manually created two trailing empties", blocks().length === 3);
+    S().ensureTrailingBlock();
+    check("trailing empties after text are removed", blocks().length === 1);
+
+    // after a non-text block: exactly one empty line, even if there were two
+    const divId = S().addBlockAfter(blocks()[0].id, "divider");
+    S().addBlockAfter(divId, "text");
+    S().addBlockAfter(divId, "text");
+    S().ensureTrailingBlock();
     check(
-      "content gains one trailing empty",
-      blocks().length === 2 &&
-        !isBlank(blocks()[0]) &&
-        isBlank(blocks()[1])
+      "after a divider: exactly one trailing empty",
+      blocks().length === 3 && blocks()[1].type === "divider" && isBlank(blocks()[2])
     );
 
-    // two trailing empties collapse to one
-    S().addBlockAfter(blocks()[1].id, "text");
-    check("manually created a second trailing empty", blocks().length === 3);
-    S().ensureTrailingBlock();
-    check("double trailing empties collapse to one", blocks().length === 2);
-
     S().deleteNote(id);
+  }
+
+  // ---- rich text: slash split, merging, legacy notes ----
+  {
+    const id = S().createNote();
+    const blocks = () => S().notes.find((n) => n.id === id)!.blocks;
+    const textId = blocks()[0].id;
+    S().updateBlock(textId, { text: "above\nbelow", html: "<p>above</p><p>/</p><p>below</p>" } as Partial<NoteBlock>);
+
+    S().splitTextBlock(
+      textId,
+      { html: "<p>above</p>", text: "above" },
+      "checklist",
+      { html: "<p>below</p>", text: "below" }
+    );
+    const [a, b, c] = blocks();
+    check(
+      "slash split: text above · new block · text below",
+      blocks().length === 3 && a.id === textId && a.type === "text" && b.type === "checklist" && c.type === "text"
+    );
+    check("slash split: focus goes to the new block", S().focusBlockId === b.id);
+    check(
+      "slash split: content kept on both sides",
+      (a as { html?: string }).html === "<p>above</p>" && (c as { text: string }).text === "below"
+    );
+
+    // removing the block between two Text blocks joins them
+    S().deleteBlock(b.id);
+    check(
+      "delete between two text blocks merges them",
+      blocks().length === 1 &&
+        (blocks()[0] as { html?: string }).html === "<p>above</p><p>below</p>" &&
+        (blocks()[0] as { text: string }).text === "above\nbelow"
+    );
+
+    // split with nothing above: the block itself becomes the new type
+    S().splitTextBlock(blocks()[0].id, null, "callout", { html: "<p>rest</p>", text: "rest" });
+    check(
+      "slash split at top: block turns into the new type, rest follows",
+      blocks()[0].id === textId && blocks()[0].type === "callout" && blocks()[1].type === "text"
+    );
+
+    // older notes (one line per block) are joined once on open
+    S().deleteNote(id);
+    const legacy = S().createNote();
+    const lb = () => S().notes.find((n) => n.id === legacy)!.blocks;
+    S().updateBlock(lb()[0].id, { text: "line one" } as Partial<NoteBlock>);
+    const second = S().addBlockAfter(lb()[0].id, "text");
+    S().updateBlock(second, { text: "line two" } as Partial<NoteBlock>);
+    const editedAt = S().notes.find((n) => n.id === legacy)!.updatedAt;
+    await new Promise((r) => setTimeout(r, 5));
+    S().normalizeTextBlocks();
+    check("joining on open doesn't count as an edit (note keeps its place)",
+      S().notes.find((n) => n.id === legacy)!.updatedAt === editedAt);
+    check(
+      "legacy one-line-per-block notes join into one rich block",
+      lb().length === 1 && (lb()[0] as { text: string }).text === "line one\nline two" &&
+        (lb()[0] as { html?: string }).html === "<p>line one</p><p>line two</p>"
+    );
+    const before = S().notes.find((n) => n.id === legacy)!.updatedAt;
+    S().normalizeTextBlocks();
+    check("normalize is a no-op when nothing to join (no needless save)",
+      S().notes.find((n) => n.id === legacy)!.updatedAt === before);
+    S().deleteNote(legacy);
   }
 
   console.log(`\nRESULT: ${passed} passed, ${failed} failed`);

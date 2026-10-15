@@ -15,7 +15,10 @@ interface BaseBlock {
 
 export interface TextBlock extends BaseBlock {
   type: "text";
+  /** Plain-text mirror — always kept in sync; used for search, previews, export. */
   text: string;
+  /** Formatted content (sanitised HTML). Absent on notes written before rich text. */
+  html?: string;
 }
 
 export interface ChecklistItem {
@@ -40,6 +43,8 @@ export type CalloutTone = "info" | "warn" | "success";
 export interface CalloutBlock extends BaseBlock {
   type: "callout";
   text: string;
+  /** Formatted content; absent on older callouts. */
+  html?: string;
   tone: CalloutTone;
 }
 

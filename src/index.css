@@ -99,3 +99,117 @@ body {
 @media (prefers-reduced-motion: reduce) {
   [role="tooltip"][data-ready="true"] { animation: none; }
 }
+
+/* ───────── Rich-text notes (Text + Callout blocks) ───────── */
+.bwm-rich {
+  outline: none;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.bwm-rich p { margin: 0; }
+.bwm-rich h1,
+.bwm-rich h2,
+.bwm-rich h3 { color: #171717; font-weight: 650; letter-spacing: -0.01em; }
+.bwm-rich h1 { font-size: 1.45em; line-height: 1.25; margin: 0.55em 0 0.15em; }
+.bwm-rich h2 { font-size: 1.22em; line-height: 1.3; margin: 0.5em 0 0.1em; }
+.bwm-rich h3 { font-size: 1.06em; line-height: 1.4; margin: 0.45em 0 0.05em; }
+.bwm-rich > :first-child { margin-top: 0; }
+.bwm-rich ul,
+.bwm-rich ol { margin: 0.15em 0; padding-left: 1.4em; }
+.bwm-rich ul { list-style: disc; }
+.bwm-rich ul ul { list-style: circle; }
+.bwm-rich ol { list-style: decimal; }
+.bwm-rich ol ol { list-style: lower-alpha; }
+.bwm-rich li { padding-left: 0.1em; }
+.bwm-rich li::marker { color: #a3a3a3; }
+.bwm-rich ol > li::marker { color: #737373; font-variant-numeric: tabular-nums; }
+.bwm-rich li > p { margin: 0; }
+.bwm-rich blockquote {
+  margin: 0.25em 0;
+  border-left: 3px solid #e5e5e5;
+  padding-left: 0.85em;
+  color: #525252;
+}
+.bwm-rich code {
+  border-radius: 5px;
+  background: #f4f4f5;
+  padding: 0.1em 0.35em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86em;
+}
+.bwm-rich pre {
+  margin: 0.3em 0;
+  border-radius: 10px;
+  background: #f4f4f5;
+  padding: 0.6em 0.8em;
+  font-size: 0.86em;
+  white-space: pre-wrap;
+}
+.bwm-rich pre code { background: none; padding: 0; font-size: inherit; }
+.bwm-rich mark {
+  border-radius: 3px;
+  background: #fde68a;
+  color: inherit;
+  padding: 0 0.08em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.bwm-rich [data-size="small"] { font-size: 0.86em; }
+.bwm-rich [data-size="large"] { font-size: 1.2em; }
+.bwm-rich [data-size="huge"] { font-size: 1.5em; line-height: 1.3; }
+.bwm-rich [data-spacing="compact"] { line-height: 1.35; }
+.bwm-rich [data-spacing="relaxed"] { line-height: 1.95; }
+.bwm-rich [data-spacing="double"] { line-height: 2.3; }
+
+/* Links: stand out; when not editing, hover shows an "opens in new tab" arrow
+   that overlaps (never reflows) the text after it. */
+.bwm-rich a {
+  border-radius: 3px;
+  color: #4f46e5;
+  text-decoration: underline;
+  text-decoration-color: #a5b4fc;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  transition: color 0.15s, background-color 0.15s, text-decoration-color 0.15s;
+}
+.bwm-rich a:hover { color: #4338ca; text-decoration-color: #6366f1; }
+.bwm-rich:not(.ProseMirror-focused) a { cursor: pointer; }
+.bwm-rich:not(.ProseMirror-focused) a:hover { background: rgb(99 102 241 / 0.1); }
+.bwm-rich:not(.ProseMirror-focused) a::after {
+  content: "";
+  display: inline-block;
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: -1.05em; /* zero net width: nothing shifts */
+  vertical-align: -0.18em;
+  border-radius: 5px;
+  background: #fff
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234f46e5' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h6v6'/%3E%3Cpath d='M10 14 21 3'/%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3E%3C/svg%3E")
+    center / 68% no-repeat;
+  box-shadow: 0 0 0 1px #c7d2fe, 0 1px 2px rgb(15 23 42 / 0.1);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(0.1em, 0.15em);
+  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+}
+.bwm-rich:not(.ProseMirror-focused) a:hover::after { opacity: 1; transform: translate(0.3em, 0); }
+
+/* Placeholders: the empty-block hint always; the "/" hint only on the line you're on. */
+.bwm-rich .is-editor-empty:first-child::before,
+.bwm-rich.ProseMirror-focused .is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: #d4d4d4;
+  pointer-events: none;
+}
+
+@keyframes bwm-toolbar-in {
+  from { opacity: 0; transform: translateY(3px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.bwm-toolbar-in { animation: bwm-toolbar-in 0.14s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .bwm-toolbar-in { animation: none; }
+  .bwm-rich a::after { transition: none; }
+}

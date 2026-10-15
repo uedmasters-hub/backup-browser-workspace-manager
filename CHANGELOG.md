@@ -1,5 +1,44 @@
 # Changelog
 
+## v1.2.3 — 2026-10-15
+
+### Added
+
+- **Rich text in Notes.** Text and Callout blocks are now formatted editors.
+  - A formatting toolbar floats over selected text and stays hidden otherwise:
+    text style (Normal, Heading 1–3) and size (Small/Default/Large/Huge) ·
+    bold · italic · underline · strikethrough · highlight · bulleted and
+    numbered lists · alignment (left/center/right/justify) and line spacing
+    (Compact/Normal/Relaxed/Double) · link · clear formatting. Callouts get
+    the inline tools and lists.
+  - Keyboard: ⌘/Ctrl B, I, U, Shift+S, Shift+H, Shift+7/8, K (link); Tab /
+    Shift+Tab nest list items; Markdown-style shortcuts while typing
+    (`# `, `- `, `1. `, `> `, `**bold**`, `` `code` ``).
+  - **Paste** keeps useful formatting (headings, lists, bold/italic/underline,
+    links, alignment) and drops fonts, colours, font sizes, line heights,
+    margins, images, empty paragraphs, doubled line breaks and non-breaking
+    spaces. Word's styled list paragraphs become real lists. Plain text with
+    bullets, numbers, `#` headings or `**bold**` is turned into structure.
+  - Enter adds a line inside a block (Shift+Enter: line break). Type `/` on an
+    empty line for the block menu; picking a block splits the text around it.
+  - Links: click opens in a new tab when you're not editing; while editing,
+    click places the caret and ⌘/Ctrl-click opens. Hover arrow kept.
+  - Copy (block toolbar) copies formatting too, for apps that accept it.
+
+### Changed
+
+- Existing notes keep their look: older plain-text blocks are shown as
+  paragraphs with clickable links, and neighbouring single-line blocks are
+  joined once into one block (without marking the note as edited).
+- An empty line is kept after a non-text block (checklist, link, divider…)
+  only — a Text block already holds many lines.
+- The editor loads only when Notes opens, so the popup itself starts as fast
+  as before.
+- Every block still keeps a plain-text copy, so search, list previews,
+  export (.txt, with • / 1. list markers) and backups work as before.
+- Tiptap 3.31.4 (pinned) for the editor. New harness: rich text (27 checks);
+  notes harness updated (46 checks).
+
 ## v1.2.2 — 2026-10-13
 
 ### Added

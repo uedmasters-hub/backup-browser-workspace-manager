@@ -4,6 +4,11 @@
  * Keep each line short and user-facing.
  */
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "1.2.3": [
+    "Notes now support rich text: bold, italic, headings, lists, sizes and more.",
+    "Select text to see the formatting toolbar — it stays hidden otherwise.",
+    "Pasting from Docs, Word or the web keeps formatting and drops the clutter.",
+  ],
   "1.2.2": [
     "New app dock: your most-visited apps as sharp icons under the window cards.",
     "Click an app to jump to it if it's open, or open it in a new window.",
