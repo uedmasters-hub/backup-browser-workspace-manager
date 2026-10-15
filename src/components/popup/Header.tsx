@@ -10,7 +10,6 @@ import {
   Search,
   StickyNote,
   LayoutGrid,
-  Layers,
   Upload,
   VenetianMask,
   X,
@@ -24,6 +23,7 @@ import { STORAGE_KEYS } from "../../constants/storageKeys";
 import { useSearchStore } from "../../stores/searchStore";
 import { useAppDockStore } from "../../stores/appDockStore";
 import { useAutoGroupStore } from "../../stores/autoGroupStore";
+import AutoGroupControl, { AutoGroupProgressBar } from "./autogroup/AutoGroupControl";
 import {
   PRIVATE_LABEL,
   openExtensionSettings,
@@ -124,15 +124,12 @@ export default function Header() {
   const dockHidden = useAppDockStore((state) => state.hidden.length);
   const setDockOn = useAppDockStore((state) => state.setEnabled);
   const restoreDockApps = useAppDockStore((state) => state.restoreHidden);
-  const autoGroupSupported = useAutoGroupStore((state) => state.supported);
-  const autoGroupOn = useAutoGroupStore((state) => state.mode === "on");
-  const autoGroupBusy = useAutoGroupStore((state) => state.busy !== null);
-  const setAutoGroupOn = useAutoGroupStore((state) => state.setEnabled);
   const [importError, setImportError] = useState<string | null>(null);
 
   const showSearch = query.trim().length > 0 || focused;
 
   function openMenu() {
+    useAutoGroupStore.getState().closePanel();
     const rect = buttonRef.current?.getBoundingClientRect();
     if (rect) {
       setMenuPos({
@@ -577,52 +574,6 @@ export default function Header() {
         </button>
       )}
 
-      {autoGroupSupported && (
-        <button
-          type="button"
-          onClick={() => {
-            if (autoGroupBusy) return;
-            // Turning it on groups open tabs now — close the menu to show the result.
-            if (!autoGroupOn) setMenuOpen(false);
-            void setAutoGroupOn(!autoGroupOn);
-          }}
-          role="menuitemcheckbox"
-          aria-checked={autoGroupOn}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-neutral-100"
-        >
-          <span
-            className={[
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-              autoGroupOn ? "bg-indigo-50 text-indigo-600" : "bg-neutral-100 text-neutral-700",
-            ].join(" ")}
-          >
-            <Layers size={17} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-medium text-neutral-800">
-              Auto-group tabs
-            </span>
-            <span className="block truncate text-[11px] text-neutral-400">
-              Sort tabs into groups by what they're about
-            </span>
-          </span>
-          <span
-            aria-hidden
-            className={[
-              "relative h-[18px] w-8 shrink-0 rounded-full transition-colors",
-              autoGroupOn ? "bg-indigo-600" : "bg-neutral-200",
-            ].join(" ")}
-          >
-            <span
-              className={[
-                "absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-all",
-                autoGroupOn ? "left-[15px]" : "left-0.5",
-              ].join(" ")}
-            />
-          </span>
-        </button>
-      )}
-
       <button
         type="button"
         onClick={() => {
@@ -704,12 +655,12 @@ export default function Header() {
   );
 
   return (
-    <header className="z-10 shrink-0 bg-white">
+    <header className="relative z-10 shrink-0 bg-white">
       {!notesOpen && (
-        <div className="flex items-center gap-3 p-5">
+        <div className="flex items-center gap-2 p-5">
         <div
           className={[
-            "flex h-12 flex-1 items-center rounded-2xl border bg-white px-4 shadow-sm transition-colors",
+            "flex h-12 min-w-0 flex-1 items-center rounded-2xl border bg-white px-3.5 shadow-sm transition-colors",
             deepMode
               ? "border-violet-400 ring-1 ring-violet-200"
               : focused
@@ -717,7 +668,7 @@ export default function Header() {
                 : "border-gray-200",
           ].join(" ")}
         >
-          <Search size={18} className="mr-3 shrink-0 text-gray-400" />
+          <Search size={18} className="mr-2.5 shrink-0 text-gray-400" />
 
           <input
             ref={inputRef}
@@ -729,9 +680,9 @@ export default function Header() {
               setMenuOpen(false);
             }}
             onBlur={() => setTimeout(() => setFocused(false), 150)}
-            placeholder="Search tabs and workspaces..."
+            placeholder="Search tabs & workspaces…"
             aria-keyshortcuts="Meta+Shift+K Control+Shift+K Meta+K Control+K /"
-            className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400"
+            className="w-full min-w-0 text-ellipsis bg-transparent text-sm outline-none placeholder:text-gray-400"
           />
 
           {query ? (
@@ -751,6 +702,8 @@ export default function Header() {
         </div>
 
         {!showSearch && (
+          <div className="flex shrink-0 items-center">
+          <AutoGroupControl onOpen={() => setMenuOpen(false)} />
           <button
             ref={buttonRef}
             type="button"
@@ -759,7 +712,7 @@ export default function Header() {
             aria-expanded={menuOpen}
             onClick={() => (menuOpen ? setMenuOpen(false) : openMenu())}
             className={[
-              "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border transition-colors",
+              "flex h-12 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors",
               menuOpen || notesOpen
                 ? "border-neutral-300 bg-neutral-100 text-neutral-900"
                 : "border-transparent text-neutral-700 hover:bg-gray-100",
@@ -767,11 +720,15 @@ export default function Header() {
           >
             <Menu size={20} />
           </button>
+          </div>
         )}
       </div>
       )}
 
       {menuOpen && !showSearch && !notesOpen && createPortal(menu, document.body)}
+
+      {/* Indexing / grouping progress, directly under the header. */}
+      {!notesOpen && <AutoGroupProgressBar />}
 
       <input
         ref={fileInputRef}

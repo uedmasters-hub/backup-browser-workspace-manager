@@ -734,6 +734,8 @@ export interface PlanInput {
   knownGroupKeys?: Record<number, string>;
   /** A new group needs at least this many tabs (joining an existing one needs 1). */
   minGroupSize?: number;
+  /** Groups the user chose not to have ("cat:social", "site:acme.com"). */
+  excludeKeys?: Iterable<string>;
 }
 
 export const MIN_GROUP_SIZE = 2;
@@ -761,6 +763,7 @@ export function resolveGroupKey(group: PlanGroupInfo, tabsInGroup: PlanTab[], kn
 /** What "Group tabs" would do: every loose tab into its category, nothing else touched. */
 export function planAutoGroups(input: PlanInput): AutoGroupPlan {
   const manual = new Set(input.manualTabIds ?? []);
+  const excluded = new Set(input.excludeKeys ?? []);
   const min = input.minGroupSize ?? MIN_GROUP_SIZE;
   const planned: PlannedGroup[] = [];
   let keptInGroups = 0;
@@ -792,6 +795,7 @@ export function planAutoGroups(input: PlanInput): AutoGroupPlan {
     }
 
     for (const [key, bucket] of buckets) {
+      if (excluded.has(key)) continue;
       const join = existing.get(key);
       if (!join && bucket.tabs.length < min) continue;
       const sorted = [...bucket.tabs].sort((a, b) => recency(b) - recency(a));

@@ -69,12 +69,12 @@ The app dock shows your most-visited sites as icons. It is built from your brows
 
 ### Auto Group Tabs
 
-When Auto Group Tabs is on (or while it shows its one-time suggestion), the extension decides which group a tab belongs to **entirely on your device**:
+When Auto Group Tabs is on, or when you ask it to scan your tabs, the extension decides which group a tab belongs to **entirely on your device**:
 
 * It reads each tab's address and title, and — only for tabs those don't place — the page's own `<meta>` description, keywords and site name (via the existing `scripting` permission). Nothing is sent anywhere, and no service or AI model is involved.
 * The categories come from a fixed list of sites and keywords built into the extension.
 * To respect tabs you move by hand, it remembers tab and group ids and the site each tab was on **in memory only** (`chrome.storage.session`) — cleared when the browser closes, never written to disk or included in backups.
-* The only thing saved is your choice (on/off). It can be turned off from the ☰ menu; "Undo" puts tabs back where they were.
+* The only things saved are your choice (on/off) and the suggested groups you unchecked (category names, or a site's domain for site groups). It can be turned off from the Auto-group icon in the header; "Undo" puts tabs back where they were.
 
 ### Locked notes and projects
 

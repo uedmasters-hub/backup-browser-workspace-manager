@@ -15,6 +15,8 @@ export const STORAGE_KEYS = {
   APP_DOCK_ENABLED: "appDockEnabled",
   APP_DOCK_HIDDEN: "appDockHidden",
   AUTO_GROUP_MODE: "autoGroupMode",
+  /** Groups the user unchecked in the review ("cat:social", "site:acme.com"). */
+  AUTO_GROUP_EXCLUDED: "autoGroupExcluded",
   /** Session-only (chrome.storage.session): tab/group ids, cleared when the browser closes. */
   AUTO_GROUP_STATE: "autoGroupState",
 } as const;

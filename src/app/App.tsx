@@ -36,10 +36,6 @@ export default function App() {
   useEffect(() => {
     ProviderRegistry.initialize();
 
-    // Auto Group Tabs: the setting, and (until the user decides) the suggestion.
-    if (typeof chrome !== "undefined" && chrome.storage) {
-      void useAutoGroupStore.getState().load();
-    }
 
     // Refresh the hover-preview snapshot of the page behind the popup.
     if (typeof chrome !== "undefined" && chrome.tabs) {
@@ -52,6 +48,12 @@ export default function App() {
     if (typeof chrome !== "undefined" && chrome.windows) {
       return registerWindowEvents();
     }
+  }, []);
+
+  // Auto Group Tabs: its setting, and progress from the background worker.
+  useEffect(() => {
+    if (typeof chrome === "undefined" || !chrome.storage) return;
+    return useAutoGroupStore.getState().init();
   }, []);
 
   // Live media polling: refresh play state/progress for audible tabs ~1×/sec,

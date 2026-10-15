@@ -8,9 +8,18 @@
   about — Work, Development, Design, Research, Healthcare, Finance, Travel,
   Social, AI, Learning, Shopping, Entertainment, News — and sites that fit
   none get a group of their own once two of their tabs are open.
-  - On first open, a card suggests the groups (with counts) — **Group tabs**
-    applies them in one click, **Skip** leaves the list exactly as it is.
-    Grouping can be undone; the tabs go back to their old places.
+  - Set up from a small icon in the header (next to ☰). The first time, it
+    indexes every open tab and shows the suggested groups for review — untick
+    any you don't want (they stay out from then on), expand a group to
+    see its tabs, then **Group N tabs**. **Not now** changes nothing. Grouping
+    can be undone; the tabs go back to their old places.
+  - While indexing or grouping — including when new tabs are grouped in the
+    background — the icon turns slowly and a slim progress bar shows under
+    the header (with real progress where known), then disappears.
+  - The icon's panel later shows on/off, the last grouping with Undo, and
+    "Scan open tabs" to review loose tabs again. If something goes wrong, it
+    says why instead of claiming success (and retries while the background
+    worker wakes up).
   - While on, new tabs join the right group as they load, and tabs that go to
     a different site, or change title to a new topic, are moved. Closed tabs
     simply leave their group.
@@ -23,7 +32,6 @@
     group of your own ("Client X") is never touched. No duplicate groups.
   - Move a tab yourself and it stays put until it goes to a different site.
     Pinned tabs never move, and nothing moves between windows.
-  - Turn it on or off any time from the ☰ menu ("Auto-group tabs").
   - In the Tabs list, groups are ordered newest first (following the Sort
     setting); Chrome order still shows them as in the tab strip.
 - **Projects in Notes.** Group related notes under a project (e.g.
@@ -89,6 +97,8 @@
   renamed, navigated or regrouped).
 - Group Left/Right in a group's menu switches the list to Chrome order, as
   Shuffle already did, so the move is visible.
+- Header: the search box is a little tighter to make room for the
+  Auto-group icon ("Search tabs & workspaces…").
 - Existing notes keep their look: older plain-text blocks are shown as
   paragraphs with clickable links, and neighbouring single-line blocks are
   joined once into one block (without marking the note as edited).
@@ -101,7 +111,7 @@
 - Tiptap 3.31.4 (pinned) for the editor. New harness: rich text (27 checks);
   notes harness updated (46 checks).
 - tldts 7.4.12 (pinned) for site matching, bundled in the background worker
-  only (the popup grows by ~9 KB for the card and setting). New harness: auto group (85 checks).
+  only (the popup grows by ~9 KB for the card and setting). New harness: auto group (86 checks).
 
 ### Fixed
 

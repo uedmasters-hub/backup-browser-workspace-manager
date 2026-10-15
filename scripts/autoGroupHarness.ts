@@ -161,6 +161,8 @@ const dupes = planAutoGroups({
   groups: [{ id: 80, windowId: 1, title: "Design" }, { id: 81, windowId: 1, title: "🎨 Design" }],
 });
 check("with two Design groups, the bigger one is used", dupes.groups[0]?.groupId === 81);
+const withoutDesign = planAutoGroups({ tabs, groups: [{ id: 50, windowId: 1, title: "Client X" }], manualTabIds: [12], excludeKeys: ["cat:design", "site:zxq.com"] });
+check("excluded groups are left out", !withoutDesign.groups.some((g) => g.key === "cat:design" || g.key === "site:zxq.com") && withoutDesign.groups.some((g) => g.key === "cat:development"));
 check("nothing to do → empty plan", planAutoGroups({ tabs: [], groups: [] }).tabCount === 0);
 const perf = Array.from({ length: 300 }, (_, i) => tab(1000 + i, `https://site${i % 40}.example/p/${i}`, `Page ${i} hotels flights`));
 const t0 = performance.now();

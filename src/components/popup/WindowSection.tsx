@@ -6,7 +6,6 @@ import UntitledSection from "./UntitledSection";
 import PrivateWindowsHint from "./PrivateWindowsHint";
 import UpdateNotice from "./UpdateNotice";
 import AppDock from "./dock/AppDock";
-import AutoGroupSuggestion from "./AutoGroupSuggestion";
 
 import { useWindowStore } from "../../stores/windowStore";
 import { useTabStore } from "../../stores/tabStore";
@@ -71,7 +70,6 @@ export default function WindowSection() {
       {/* …and every system message (updates, private windows, …) comes after them. */}
       <UpdateNotice />
       <PrivateWindowsHint />
-      <AutoGroupSuggestion />
 
       <ArchivedSection
         windows={archivedWindows}

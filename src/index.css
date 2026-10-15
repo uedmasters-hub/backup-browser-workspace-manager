@@ -213,3 +213,22 @@ body {
   .bwm-toolbar-in { animation: none; }
   .bwm-rich a::after { transition: none; }
 }
+
+/* Auto Group Tabs — header icon while working, and the bar under the header */
+@keyframes bwm-spin {
+  to { transform: rotate(360deg); }
+}
+.bwm-spin {
+  animation: bwm-spin 1.6s linear infinite;
+}
+@keyframes bwm-progress-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+.bwm-progress-indeterminate {
+  animation: bwm-progress-slide 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bwm-spin { animation: none; }
+  .bwm-progress-indeterminate { animation: none; width: 100%; opacity: 0.5; }
+}
