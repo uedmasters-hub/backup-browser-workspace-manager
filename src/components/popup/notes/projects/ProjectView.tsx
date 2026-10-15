@@ -120,6 +120,15 @@ function OpenProject({ project }: { project: NoteProject }) {
           />
           <button
             type="button"
+            onClick={() => createNote(project.id)}
+            aria-label={`New note in ${project.name}`}
+            title="New note"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800"
+          >
+            <Plus size={19} />
+          </button>
+          <button
+            type="button"
             onClick={(e) => setMenu(e.currentTarget.getBoundingClientRect())}
             aria-label="Project actions"
             title="Project actions"
@@ -273,13 +282,14 @@ function OpenProject({ project }: { project: NoteProject }) {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-1">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3 pt-1">
         {count === 0 ? (
           <div className="flex h-full flex-col items-center justify-center px-8 text-center">
             <ProjectIcon color={project.color} size={48} locked={project.locked} />
             <p className="mt-3 text-sm font-medium text-neutral-700">Nothing in {project.name} yet</p>
             <p className="mt-1 text-xs leading-relaxed text-neutral-400">
-              Create a note below, or bring existing notes here with the move button on any note.
+              Use <Plus size={12} className="-mt-0.5 inline" aria-label="plus" /> to add a note, or bring
+              existing notes here with the move button on any note.
             </p>
           </div>
         ) : (
@@ -291,15 +301,6 @@ function OpenProject({ project }: { project: NoteProject }) {
         )}
       </div>
 
-      <div className="shrink-0 border-t border-neutral-100 bg-white px-4 py-3">
-        <button
-          type="button"
-          onClick={() => createNote(project.id)}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-neutral-900 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
-        >
-          <Plus size={16} /> New note in {project.name.length > 24 ? "project" : project.name}
-        </button>
-      </div>
     </div>
   );
 }

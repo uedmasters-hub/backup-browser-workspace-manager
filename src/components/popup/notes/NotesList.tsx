@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
-import { ChevronRight, FolderPlus, Plus, Search, StickyNote, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { ChevronRight, FilePlus2, FolderPlus, Plus, StickyNote, X } from "lucide-react";
 
 import { useUIStore } from "../../../stores/uiStore";
 import { useNotesStore } from "../../../stores/notesStore";
 
 import NoteRow from "./NoteRow";
+import NotesSearch from "./NotesSearch";
+import DropdownMenu, { MenuRow } from "./menus/DropdownMenu";
 import ProjectIcon from "./projects/ProjectIcon";
 import { ago, matchesQuery } from "./noteMeta";
 
@@ -48,6 +50,8 @@ export default function NotesList() {
   const openProject = useNotesStore((s) => s.openProject);
 
   const [newProject, setNewProject] = useState<string | null>(null);
+  const [addMenu, setAddMenu] = useState<DOMRect | null>(null);
+  const searchControl = useRef<((open: boolean) => void) | null>(null);
 
   const summaries = useMemo<ProjectSummary[]>(
     () =>
@@ -79,29 +83,66 @@ export default function NotesList() {
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col bg-white">
-      <div className="sticky top-0 z-10 shrink-0 bg-white px-4 pb-2 pt-4">
-        <div className="flex items-center gap-2">
+      {/* × · Notes / search · + */}
+      <div className="shrink-0 bg-white px-3 pb-2 pt-4">
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={closeNotes}
             aria-label="Close notes"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-50"
+            title="Close"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800"
           >
-            <X size={18} />
+            <X size={19} />
           </button>
-          <div className="flex flex-1 items-center rounded-2xl border border-neutral-200 bg-white px-4 py-3 shadow-sm">
-            <Search size={18} className="mr-3 shrink-0 text-neutral-400" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search notes and projects…"
-              className="w-full bg-transparent text-sm outline-none placeholder:text-neutral-300"
-            />
-          </div>
+          <NotesSearch
+            title="Notes"
+            query={query}
+            onQuery={setQuery}
+            placeholder="Search notes and projects…"
+            openRef={searchControl}
+          />
+          <button
+            type="button"
+            onClick={(e) => setAddMenu(e.currentTarget.getBoundingClientRect())}
+            aria-label="New note or project"
+            title="New"
+            aria-haspopup="menu"
+            aria-expanded={Boolean(addMenu)}
+            className={[
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors",
+              addMenu ? "bg-neutral-100 text-neutral-900" : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800",
+            ].join(" ")}
+          >
+            <Plus size={19} />
+          </button>
         </div>
+
+        {addMenu && (
+          <DropdownMenu anchor={addMenu} onClose={() => setAddMenu(null)} label="Create" width={200}>
+            <MenuRow
+              icon={<FilePlus2 size={14} />}
+              label="New note"
+              onSelect={() => {
+                setAddMenu(null);
+                createNote(null);
+              }}
+            />
+            <MenuRow
+              icon={<FolderPlus size={14} />}
+              label="New project"
+              onSelect={() => {
+                setAddMenu(null);
+                searchControl.current?.(false);
+                setQuery("");
+                setNewProject("");
+              }}
+            />
+          </DropdownMenu>
+        )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-2">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3">
         {empty ? (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-400">
@@ -109,7 +150,9 @@ export default function NotesList() {
             </div>
             <p className="text-sm font-medium text-neutral-700">No notes yet</p>
             <p className="mt-1 text-xs leading-relaxed text-neutral-400">
-              Notes are shared across every window. Create a note, or a project to group related notes.
+              Notes are shared across every window. Use{" "}
+              <Plus size={12} className="-mt-0.5 inline" aria-label="plus" /> to create a note, or a project to
+              group related notes.
             </p>
           </div>
         ) : q ? (
@@ -164,27 +207,6 @@ export default function NotesList() {
         )}
       </div>
 
-      <div className="flex shrink-0 gap-2 border-t border-neutral-100 bg-white px-4 py-3">
-        <button
-          type="button"
-          onClick={() => createNote(null)}
-          className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-neutral-900 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
-        >
-          <Plus size={16} /> New note
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setQuery("");
-            setNewProject("");
-          }}
-          title="New project"
-          aria-label="New project"
-          className="flex items-center justify-center gap-2 rounded-2xl border border-neutral-200 px-4 py-3 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
-        >
-          <FolderPlus size={16} /> Project
-        </button>
-      </div>
     </div>
   );
 }

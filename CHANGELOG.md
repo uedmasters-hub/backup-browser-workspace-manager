@@ -8,8 +8,12 @@
   "eMedicalls") while standalone notes work exactly as before.
   - Notes shows one unified list: projects first (folder icon, note count,
     last activity), then standalone notes (document icon) — no section
-    labels. A small lock badge appears only on locked items. "Project" next
-    to "New note" creates one.
+    labels. A small lock badge appears only on locked items.
+  - Compact Notes toolbar: × on the left; search and + on the right. Search
+    stays folded until clicked (or "/"), then grows into a field — × or
+    Escape clears it and folds it back. + offers New note / New project.
+    The bottom button bar is gone, so the list gets the full height; inside
+    a project, + next to ⋮ adds a note to it.
   - Opening a project lists its notes; "New note in …" creates the note
     inside it, and leaving a note returns to the project.
   - Move any note in or out — from the move button on a note row, or the
