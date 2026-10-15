@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v1.2.3 — 2026-10-15
+
+Auto Group Tabs, rich-text notes and Projects in Notes.
 
 ### Added
 

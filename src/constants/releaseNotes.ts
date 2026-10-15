@@ -5,12 +5,11 @@
  */
 export const RELEASE_NOTES: Record<string, string[]> = {
   "1.2.3": [
-    "Auto Group Tabs: tap the new header icon to sort tabs into groups by topic — review first.",
-    "New tabs then join the right group in the background. Move one yourself and it stays put.",
-    "Notes now support rich text: bold, italic, headings, lists, sizes and more.",
-    "Select text to see the formatting toolbar — it stays hidden otherwise.",
-    "Pasting from Docs, Word or the web keeps formatting and drops the clutter.",
-    "Projects: group related notes, move notes in and out, download as a ZIP.",
+    "Auto Group Tabs: tap the new header icon to sort tabs into groups by topic.",
+    "Review the groups first; new tabs then join the right group on their own.",
+    "Notes now support rich text — select text to see the formatting toolbar.",
+    "Projects: group related notes, lock them with a PIN, download as a ZIP.",
+    "A cleaner Notes list and toolbar, with more room for your notes.",
   ],
   "1.2.2": [
     "New app dock: your most-visited apps as sharp icons under the window cards.",
