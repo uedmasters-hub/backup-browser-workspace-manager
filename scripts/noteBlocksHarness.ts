@@ -7,7 +7,7 @@
  * Run: npx tsx scripts/noteBlocksHarness.ts
  */
 import { chartData, chartSvg, parseChartRows, parseNumber } from "../src/components/popup/notes/chart";
-import { docToPlainText, tabularTextToHtml } from "../src/components/popup/notes/richText";
+import { docToPlainText, tabularTextToHtml, trimTrailingEmptyParagraphs } from "../src/components/popup/notes/richText";
 import { buildDocModel, embeddableImage, pageSetupFor, tableGrid } from "../src/components/popup/notes/docModel";
 import type { DocCell } from "../src/components/popup/notes/docModel";
 import { docxFiles } from "../src/components/popup/notes/docDocx";
@@ -65,6 +65,11 @@ const t = tabularTextToHtml("Item\tPrice\nTea\t40\nCoffee\t75") ?? "";
 check("tsv: becomes a table with a header row", t.startsWith("<table>") && t.includes("<th><p>Item</p></th>") && t.includes("<td><p>75</p></td>"));
 eq("tsv: ordinary text isn't a table", tabularTextToHtml("one line\nanother line"), null);
 check("tsv: cells are escaped", (tabularTextToHtml("a\t<b>\nc\td") ?? "").includes("&lt;b&gt;"));
+
+// ── blank lines at the end of a block ──
+eq("trailing empty lines trimmed", trimTrailingEmptyParagraphs('<p>a</p><p></p><p style="text-align: center"></p><p><br></p>'), "<p>a</p>");
+eq("an empty block keeps its one line", trimTrailingEmptyParagraphs("<p></p>"), "<p></p>");
+eq("empty lines in the middle kept", trimTrailingEmptyParagraphs("<p>a</p><p></p><p>b</p>"), "<p>a</p><p></p><p>b</p>");
 
 // ── plain-text mirror ──
 eq("text mirror: pictures and tables",

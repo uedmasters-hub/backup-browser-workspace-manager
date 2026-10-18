@@ -56,12 +56,6 @@ export default function TextBlockView({ block }: { block: TextBlock }) {
   const blockCount = useNotesStore(
     (s) => s.notes.find((n) => n.id === s.activeNoteId)?.blocks.length ?? 0
   );
-  // The empty line kept at the end of the note (after a checklist, link…):
-  // it's the "next line", so its hint waits until you're done writing above.
-  const isNextLine = useNotesStore((s) => {
-    const blocks = s.notes.find((n) => n.id === s.activeNoteId)?.blocks ?? [];
-    return blocks.length > 1 && blocks[blocks.length - 1].id === block.id;
-  });
   const wrapperRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   /** A picture is being chosen — keep the empty line it will go on. */
@@ -195,8 +189,6 @@ export default function TextBlockView({ block }: { block: TextBlock }) {
       onCopy={() => copy(block.text, block.html)}
       copied={copied}
       empty={isBlockEmpty(block)}
-      flat
-      className={isNextLine && isBlockEmpty(block) ? "bwm-next" : ""}
     >
       <div className="relative" ref={wrapperRef}>
         <EditorContent editor={editor} />

@@ -12,8 +12,11 @@ type Props = {
   onHover: (index: number) => void;
 };
 
-const MAX_HEIGHT = 240;
+const MIN_HEIGHT = 240;
 const WIDTH = 236;
+/** Header + each item (two lines) — so the menu can be as tall as its list. */
+const HEADER_H = 26;
+const ITEM_H = 54;
 
 export default function SlashMenu({
   query,
@@ -36,11 +39,14 @@ export default function SlashMenu({
     return null;
   }
 
-  // Flip above the line when there isn't room below (popup is short).
-  const openUp = anchor.bottom + MAX_HEIGHT + 8 > window.innerHeight;
-  const top = openUp
-    ? Math.max(8, anchor.top - MAX_HEIGHT - 6)
-    : anchor.bottom + 6;
+  // As tall as the list when there's room (every block visible), otherwise
+  // the larger side of the line; it scrolls only when it has to.
+  const wanted = HEADER_H + items.length * ITEM_H + 12;
+  const below = window.innerHeight - anchor.bottom - 14;
+  const above = anchor.top - 14;
+  const openUp = below < Math.min(wanted, MIN_HEIGHT) && above > below;
+  const maxHeight = Math.max(120, Math.min(wanted, openUp ? above : below));
+  const top = openUp ? Math.max(8, anchor.top - maxHeight - 6) : anchor.bottom + 6;
   const left = Math.max(
     8,
     Math.min(anchor.left, window.innerWidth - WIDTH - 8)
@@ -54,7 +60,7 @@ export default function SlashMenu({
         top,
         left,
         width: WIDTH,
-        maxHeight: MAX_HEIGHT,
+        maxHeight,
       }}
       className="z-50 overflow-y-auto overscroll-contain rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-xl"
     >

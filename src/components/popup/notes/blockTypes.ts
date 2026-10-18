@@ -29,13 +29,13 @@ export interface BlockTypeMeta {
 export const BLOCK_TYPES: BlockTypeMeta[] = [
   { type: "text", label: "Text", hint: "Plain note", keywords: ["text", "paragraph", "p"], Icon: AlignLeft },
   { type: "checklist", label: "Checklist", hint: "Track to-dos", keywords: ["todo", "task", "check", "list"], Icon: ListChecks },
-  { type: "link", label: "Link", hint: "Save a URL", keywords: ["url", "link", "bookmark"], Icon: Link2 },
-  { type: "password", label: "Password", hint: "PIN-protected", keywords: ["password", "secret", "pin", "secure"], Icon: Lock },
-  { type: "callout", label: "Callout", hint: "Highlight a note", keywords: ["callout", "note", "info", "warn"], Icon: MessageSquareText },
-  { type: "divider", label: "Divider", hint: "Separate sections", keywords: ["divider", "hr", "line", "separator"], Icon: Minus },
-  { type: "image", label: "Image", hint: "Upload — or just paste one", keywords: ["image", "picture", "photo", "screenshot", "img"], Icon: Image },
+  { type: "image", label: "Image", hint: "Choose, paste or drop a picture", keywords: ["image", "picture", "photo", "screenshot", "img"], Icon: Image },
   { type: "table", label: "Table", hint: "Rows and columns", keywords: ["table", "grid", "rows", "columns", "spreadsheet"], Icon: Table },
   { type: "chart", label: "Chart", hint: "Bar, line or pie", keywords: ["chart", "graph", "bar", "line", "pie", "plot"], Icon: ChartColumn },
+  { type: "callout", label: "Callout", hint: "Highlight a note", keywords: ["callout", "note", "info", "warn"], Icon: MessageSquareText },
+  { type: "link", label: "Link", hint: "Save a URL", keywords: ["url", "link", "bookmark"], Icon: Link2 },
+  { type: "divider", label: "Divider", hint: "Separate sections", keywords: ["divider", "hr", "line", "separator"], Icon: Minus },
+  { type: "password", label: "Password", hint: "PIN-protected", keywords: ["password", "secret", "pin", "secure"], Icon: Lock },
 ];
 
 export function filterBlockTypes(query: string): BlockTypeMeta[] {

@@ -15,6 +15,7 @@ import {
 import { useNotesStore } from "../../../stores/notesStore";
 import { blockFields, editorFor, focusBlockAt, moveToBlock, startNextLine } from "./blockNav";
 import { filesToImages, insertImages } from "./images";
+import { NEXT_LINE_HINT } from "./rich/extensions";
 
 import BlockRenderer from "./blocks/BlockRenderer";
 import PinPrompt from "./PinPrompt";
@@ -295,21 +296,27 @@ export default function NoteEditor({ note }: { note: Note }) {
         <div
           data-note-blocks
           className="cursor-auto space-y-1.5 py-1"
-          onBlur={() => ensureTrailingBlock()}
+          onBlur={(e) => {
+            // Moving into the empty next line must not remove it.
+            const to = e.relatedTarget as HTMLElement | null;
+            ensureTrailingBlock(to?.closest<HTMLElement>("[data-block-id]")?.dataset.blockId);
+          }}
           onKeyDown={onFieldNavKey}
         >
           {note.blocks.map((block) => (
             <BlockRenderer key={block.id} block={block} />
           ))}
           {showNextRow && (
+            // The next section, drawn exactly like an empty Text block (same
+            // spacing and hover), so clicking it turns it into one in place.
             <div
-              className="bwm-next-row -mt-3.5 cursor-text px-3 pb-2 pt-0 text-[15px] leading-relaxed text-neutral-300 select-none"
+              className="bwm-next-row cursor-text rounded-xl px-1 py-0.5 transition-colors hover:bg-neutral-50"
               onMouseDown={(e) => {
                 e.preventDefault();
                 startNextLine();
               }}
             >
-              Write something, or press “/” for blocks…
+              <div className="select-none px-2 py-1.5 text-[15px] leading-relaxed text-neutral-300">{NEXT_LINE_HINT}</div>
             </div>
           )}
         </div>

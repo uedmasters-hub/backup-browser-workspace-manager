@@ -10,6 +10,7 @@ import type { EditorView } from "@tiptap/pm/view";
 import type { Editor } from "@tiptap/react";
 
 import { useNotesStore } from "../../../stores/notesStore";
+import { isBlockEmpty } from "./blockTypes";
 
 import type { NoteBlock } from "../../../types/notes";
 
@@ -109,27 +110,23 @@ export function moveToBlock(id: string, dir: 1 | -1, createLine = false): boolea
   return false;
 }
 
-/** Ready to type on a fresh, empty last line of this editor. */
-export function appendEmptyLine(ed: Editor): void {
-  const { doc } = ed.state;
-  const last = doc.lastChild;
-  const lastIsEmptyLine = last?.type.name === "paragraph" && last.content.size === 0;
-  if (!(ed.isEmpty || lastIsEmptyLine)) {
-    ed.chain().insertContentAt(doc.content.size, { type: "paragraph" }).run();
-  }
-  focusEditor(ed, "end");
-}
-
-/** The "next line" under the note: a new empty line at the end, caret in it. */
+/**
+ * The "next line" under the note: a new, separate Text block right below the
+ * last one (or the empty one already there), with the caret in it. It takes
+ * the place of the row that showed its hint, so nothing moves.
+ */
 export function startNextLine(): void {
+  const store = useNotesStore.getState();
   const blocks = activeBlocks();
   const last = blocks[blocks.length - 1];
-  const ed = last?.type === "text" ? editorFor(last.id) : undefined;
-  if (ed) {
-    appendEmptyLine(ed);
+  if (last?.type === "text" && isBlockEmpty(last)) {
+    if (!focusBlockAt(last.id, "end")) store.focusBlock(last.id, "end");
     return;
   }
-  useNotesStore.getState().addBlock("text");
+  // No blank line left between the text above and the new section.
+  const ed = last?.type === "text" ? editorFor(last.id) : undefined;
+  if (ed) trimTrailingEmptyLines(ed);
+  store.addBlock("text");
 }
 
 /**

@@ -5,7 +5,11 @@ import {
   getNotes,
   saveNotesAndProjects,
 } from "../browser/storage/notesRepository";
-import { mergeTextBlocks, type RichPart } from "../components/popup/notes/richText";
+import {
+  mergeTextBlocks,
+  trimTrailingEmptyParagraphs,
+  type RichPart,
+} from "../components/popup/notes/richText";
 
 import type {
   Note,
@@ -122,7 +126,8 @@ interface NotesActions {
   addBlock: (type: NoteBlockType) => string;
   addBlockAfter: (afterId: string, type: NoteBlockType) => string;
   addLineAfter: (id: string) => string;
-  ensureTrailingBlock: () => void;
+  /** `keepId`: a trailing empty block that's about to be (or is) edited — never removed. */
+  ensureTrailingBlock: (keepId?: string) => void;
   transformBlock: (id: string, type: NoteBlockType) => void;
   /**
    * Slash menu inside a Text block: keep what's above (`before`), insert the
@@ -144,6 +149,8 @@ interface NotesActions {
   /** Focus a block (Tab / arrows / clicks), caret at its start or end. */
   focusBlock: (id: string, at?: "start" | "end") => void;
   consumeFocus: () => void;
+  /** Save now if a save is waiting (the popup is closing). */
+  flushPendingSave: () => void;
 }
 
 import {
@@ -654,7 +661,7 @@ export const useNotesStore = create<NotesStore>((set, get) => {
     // There's always somewhere to type at the end: a Text block holds many
     // lines, so one is only added after a non-text block (checklist, link,
     // divider…). Extra trailing empty lines are dropped. No focus steal.
-    ensureTrailingBlock: () => {
+    ensureTrailingBlock: (keepId) => {
       const note = activeNote();
       if (!note) return;
       if (note.locked && get().revealedId !== note.id) {
@@ -669,12 +676,18 @@ export const useNotesStore = create<NotesStore>((set, get) => {
       }
       const lastMeaningful = blocks[end - 1];
       const needsLine = !lastMeaningful || lastMeaningful.type !== "text";
+      const head = blocks.slice(0, end);
+      // The empty "next line" you're moving into stays, whatever is above it.
+      const kept = keepId ? blocks.slice(end).find((b) => b.id === keepId) : undefined;
+      if (kept) {
+        if (blocks.length - end === 1) return;
+        mutateActive(() => [...head, kept]);
+        return;
+      }
       const wanted = needsLine ? 1 : 0;
       if (blocks.length - end === wanted) {
         return;
       }
-
-      const head = blocks.slice(0, end);
       // Reuse the first existing trailing empty (keeps its id/focus) or make one.
       const tail = needsLine ? [blocks[end] ?? createBlock("text")] : [];
       mutateActive(() => [...head, ...tail]);
@@ -709,10 +722,21 @@ export const useNotesStore = create<NotesStore>((set, get) => {
       if (focusId && isFocusable(type)) set({ focusBlockId: focusId });
     },
 
+    // On opening a note: neighbouring Text blocks become one, and blank
+    // lines left at the end of a block (e.g. the popup closed mid-edit) go,
+    // so the next-line row sits right under the text.
     normalizeTextBlocks: () => {
       const note = activeNote();
-      if (!note || mergeTextBlocks(note.blocks) === note.blocks) return;
-      mutateActive(mergeTextBlocks, { touch: false });
+      if (!note) return;
+      const tidy = (blocks: NoteBlock[]) =>
+        mergeTextBlocks(blocks).map((b) => {
+          if (b.type !== "text" || !b.html) return b;
+          const html = trimTrailingEmptyParagraphs(b.html);
+          return html === b.html ? b : { ...b, html };
+        });
+      const next = tidy(note.blocks);
+      if (next.length === note.blocks.length && next.every((b, i) => b === note.blocks[i])) return;
+      mutateActive(tidy, { touch: false });
     },
 
     updateBlock: (id, patch) => {
@@ -756,5 +780,22 @@ export const useNotesStore = create<NotesStore>((set, get) => {
     focusBlock: (id, at = "end") => set({ focusBlockId: id, focusAt: at }),
 
     consumeFocus: () => set({ focusBlockId: undefined, focusAt: undefined }),
+
+    flushPendingSave: () => {
+      if (!saveTimer) return;
+      clearTimeout(saveTimer);
+      saveTimer = undefined;
+      void persistNow();
+    },
   };
 });
+
+// Saves wait 350 ms after the last change. A popup can close sooner than
+// that (click outside, Esc), so whatever is waiting is written right away.
+if (typeof window !== "undefined" && typeof document !== "undefined") {
+  const flush = () => useNotesStore.getState().flushPendingSave();
+  window.addEventListener("pagehide", flush);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flush();
+  });
+}

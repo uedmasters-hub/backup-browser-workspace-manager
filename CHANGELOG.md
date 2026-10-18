@@ -4,14 +4,18 @@
 
 ### Changed
 
-- **Writing in a note reads like one document.** Lines you add while typing
-  no longer show a "Type /" hint inside the block, and the block being edited
-  never gets a grey box around it.
-  - The "next line" is its own row under the last line (or the empty line
-    after a checklist, link, chart…). Its hint shows when you're not writing
-    above it, and hides while you are. Click it — or anywhere on the empty
-    page below the note — to start a new line; blank lines left at the end
-    are tidied away when you leave.
+- **Writing in a note reads like one document.** No hint shows on the lines
+  of the block you're writing in, and while you're writing in a block it has
+  no grey box around it (sections still highlight on hover otherwise).
+  - The next section is always visible right under the text — while you
+    type, and after you leave — as a row that looks like an empty block.
+    Clicking it (or anywhere on the empty page below the note) turns it into
+    a real block in the same spot, cursor ready. Press Enter at the end of a
+    block and the hint moves onto that empty line instead.
+  - Blank lines left at the end of a block are tidied when you leave it and
+    when a note opens, so the next section always sits right under the text.
+  - Changes are saved the moment the popup closes (saves used to wait
+    350 ms, so closing straight after typing could lose the last edit).
   - **Tab** moves to the next block (and on to a new line after the last),
     **Shift+Tab** to the previous one — back to the title from the first.
     In lists Tab still indents; in tables it moves between cells. **↑ / ↓**
@@ -24,7 +28,8 @@
 ### Added
 
 - **Images, tables and charts in notes** — from the "/" menu (now titled
-  *Blocks*) or by pasting.
+  *Blocks*, with Image, Table and Chart right after Checklist, and as tall as
+  the popup allows so they're visible without scrolling) or by pasting.
   - **Image**: pick files, or paste / drop pictures (screenshots, copied
     images, charts copied from Excel or Sheets). Pictures are shrunk to at
     most 1600 px and kept inside the note as PNG/JPEG — so they work offline,
