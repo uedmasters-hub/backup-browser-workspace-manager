@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Download a note as Word or Rich Text.** The note's ⋮ menu now has
+  *Download as* → **Word document (.docx)**, **Rich text (.rtf)** or
+  **Plain text (.txt)**.
+  - Formatting comes along: title, headings (Word's heading styles, so the
+    navigation pane works), bold / italic / underline / strike, highlight,
+    inline code and code blocks, text sizes, alignment, line spacing, real
+    bulleted and numbered lists (nested, custom start numbers), quotes,
+    coloured callouts, checklists (☑ / ☐), link blocks, dividers.
+  - Links keep working; only http(s) and mailto targets are written.
+    Password blocks show their label only — the secret is never exported.
+  - The .docx is a genuine Word file (opens in Word, Google Docs, Pages and
+    LibreOffice without a conversion warning); .rtf opens in Word, TextEdit,
+    WordPad and Pages. Page size follows the browser's region (Letter in the
+    US and nearby, A4 elsewhere).
+  - Built without new dependencies; the export code only loads when a
+    download is chosen. File names are made safe for every OS.
+
 ## v1.2.3 — 2026-10-15
 
 Auto Group Tabs, rich-text notes and Projects in Notes.
