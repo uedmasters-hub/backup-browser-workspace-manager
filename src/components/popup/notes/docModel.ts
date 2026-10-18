@@ -7,7 +7,7 @@
  * alignment, line spacing); everything else in stored HTML is reduced to its
  * text. Link targets go through the same allow-list as the other exports.
  */
-import { blockHtml } from "./richText";
+import { blockHtml, mergeTextBlocks } from "./richText";
 import { chartData, formatNumber } from "./chart";
 
 import type { CalloutTone, ChartBlock, Note, NoteBlock } from "../../../types/notes";
@@ -470,7 +470,7 @@ export function buildDocModel(note: Note, pictures?: Record<string, DocImage>): 
   b.paragraphs.push({ kind: "title", runs: [{ text: title }] });
   b.paragraphs.push({ kind: "meta", runs: [{ text: `Updated ${formatUpdated(note.updatedAt)}`, muted: true }] });
   const bodyStart = b.paragraphs.length;
-  note.blocks.forEach((block) => addBlock(b, block));
+  mergeTextBlocks(note.blocks).forEach((block) => addBlock(b, block));
 
   // Trailing empty paragraphs (the editor's "type here" line) add nothing.
   while (

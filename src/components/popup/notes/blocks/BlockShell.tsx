@@ -18,8 +18,6 @@ type Props = {
   bare?: boolean;
   /** Only a placeholder so far — no toolbar until something is written. */
   empty?: boolean;
-  /** Text blocks read as part of the page: no hover surface. */
-  flat?: boolean;
   /** Extra classes on the outer element (e.g. the "next line" marker). */
   className?: string;
 };
@@ -31,7 +29,6 @@ export default function BlockShell({
   copied = false,
   bare = false,
   empty = false,
-  flat = false,
   className = "",
 }: Props) {
   const moveBlock = useNotesStore((s) => s.moveBlock);
@@ -46,10 +43,9 @@ export default function BlockShell({
         className={
           bare
             ? ""
-            : flat
-              ? "px-1 py-0.5"
-              : // The hover surface never shows while the block is being edited.
-                "rounded-xl px-1 py-0.5 transition-colors [&:not(:focus-within)]:group-hover/block:bg-neutral-50"
+            : // Hover highlights the section; while you're writing in it the
+              // surface stays clear, so the page reads as one document.
+              "rounded-xl px-1 py-0.5 transition-colors [&:not(:focus-within)]:group-hover/block:bg-neutral-50"
         }
       >
         {children}

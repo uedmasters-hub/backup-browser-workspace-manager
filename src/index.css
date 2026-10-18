@@ -205,15 +205,18 @@ body {
   transition: opacity 0.15s;
 }
 
-/* The "next line" under the note — the trailing empty block or the row after
-   the last line — keeps its hint out of the way while you're writing in
-   another block, and shows it again once you're done or move to it. */
-[data-note-blocks]:focus-within .bwm-next:not(:focus-within) .is-editor-empty::before,
-[data-note-blocks]:focus-within .bwm-next-row {
-  opacity: 0;
+/* The empty last line you've moved onto (Enter at the end of a block) is the
+   next section: it shows the hint, and the row under the note — which would
+   repeat it — steps aside. */
+.bwm-rich.ProseMirror-focused > p.is-empty:last-child:not(:first-child)::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: #d4d4d4;
+  pointer-events: none;
 }
-.bwm-next-row {
-  transition: opacity 0.15s;
+[data-block-id]:has(.ProseMirror-focused > p.is-empty:last-child) + .bwm-next-row {
+  display: none;
 }
 
 /* Pictures and tables inside a note */
@@ -224,7 +227,7 @@ body {
   margin: 0.35em 0;
   border-radius: 8px;
 }
-.bwm-rich img.ProseMirror-selectednode {
+.bwm-rich.ProseMirror-focused img.ProseMirror-selectednode {
   outline: 2px solid #6366f1;
   outline-offset: 2px;
 }

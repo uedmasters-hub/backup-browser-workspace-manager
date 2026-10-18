@@ -211,6 +211,19 @@ export function docToPlainText(doc: RichJSON): string {
   return lines.join("\n");
 }
 
+const TRAILING_EMPTY_P = /<p(?:\s[^>]*)?>(?:<br\s*\/?>)?<\/p>$/;
+
+/** Empty lines at the end of stored HTML go (one empty line stays if that's all there is). */
+export function trimTrailingEmptyParagraphs(html: string): string {
+  let out = html;
+  while (TRAILING_EMPTY_P.test(out)) {
+    const next = out.replace(TRAILING_EMPTY_P, "");
+    if (!next) break;
+    out = next;
+  }
+  return out;
+}
+
 /** Stored HTML for a text-like block (converted on the fly for older notes). */
 export function blockHtml(block: { text: string; html?: string }): string {
   return block.html ?? legacyTextToHtml(block.text);

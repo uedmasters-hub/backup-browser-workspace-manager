@@ -77,6 +77,9 @@ const LineSpacing = Extension.create({
 
 export type RichVariant = "full" | "callout";
 
+/** The hint on the "next line" — the row under the note, or the empty line you're on. */
+export const NEXT_LINE_HINT = "Write something, or press “/” for blocks…";
+
 /**
  * Pictures live in the note itself (shrunk data: URLs — see ../images.ts),
  * so they're saved, encrypted, backed up and exported with it. Only images
@@ -130,11 +133,15 @@ export function richExtensions(
           TableKit.configure({ table: { resizable: false, allowTableNodeSelection: true } }),
         ]
       : []),
-    // Only an empty block shows a hint. New lines inside a block stay clean
-    // while you write; the "next line" row under the note carries the
-    // "/" hint instead (see NoteEditor).
+    // An empty block shows its hint. Inside a block, only the empty last
+    // line you've moved onto (Enter at the end) shows it — that line is the
+    // next section; lines in the middle stay clean while you write.
     Placeholder.configure({
-      placeholder: ({ editor }) => (editor.isEmpty ? emptyPlaceholder : ""),
+      placeholder: ({ editor, node, pos, hasAnchor }) => {
+        if (editor.isEmpty) return emptyPlaceholder;
+        if (!full || !hasAnchor || node.type.name !== "paragraph") return "";
+        return pos + node.nodeSize === editor.state.doc.content.size ? NEXT_LINE_HINT : "";
+      },
     }),
   ];
 }
