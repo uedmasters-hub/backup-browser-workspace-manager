@@ -1,3 +1,5 @@
+import { chartToText } from "./chart";
+
 import type { Note } from "../../../types/notes";
 
 export function noteToText(note: Note): string {
@@ -27,6 +29,9 @@ export function noteToText(note: Note): string {
         break;
       case "password":
         lines.push(`[\u{1F512} ${block.label || "Password"} \u2014 encrypted]`, "");
+        break;
+      case "chart":
+        lines.push(chartToText(block) || "[Chart]", "");
         break;
     }
   }

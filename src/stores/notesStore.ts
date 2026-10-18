@@ -44,12 +44,20 @@ function createBlock(type: NoteBlockType, id = uid()): NoteBlock {
       return { id, type };
     case "password":
       return { id, type, label: "" };
+    case "chart":
+      return {
+        id,
+        type,
+        kind: "bar",
+        title: "",
+        points: [1, 2, 3].map(() => ({ id: uid(), label: "", value: null })),
+      };
   }
 }
 
 /** A text block is focusable; a divider/password is not auto-focused. */
 function isFocusable(type: NoteBlockType): boolean {
-  return type === "text" || type === "checklist" || type === "link" || type === "callout";
+  return type === "text" || type === "checklist" || type === "link" || type === "callout" || type === "chart";
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -72,6 +80,8 @@ interface NotesState {
   query: string;
   loading: boolean;
   focusBlockId?: string;
+  /** Where the caret goes in `focusBlockId` (default: end). */
+  focusAt?: "start" | "end";
   /** Locked note currently decrypted for viewing this session. */
   revealedId?: string;
 }
@@ -131,6 +141,8 @@ interface NotesActions {
   deleteBlockFocusPrev: (id: string) => void;
   moveBlock: (id: string, direction: -1 | 1) => void;
 
+  /** Focus a block (Tab / arrows / clicks), caret at its start or end. */
+  focusBlock: (id: string, at?: "start" | "end") => void;
   consumeFocus: () => void;
 }
 
@@ -741,6 +753,8 @@ export const useNotesStore = create<NotesStore>((set, get) => {
       });
     },
 
-    consumeFocus: () => set({ focusBlockId: undefined }),
+    focusBlock: (id, at = "end") => set({ focusBlockId: id, focusAt: at }),
+
+    consumeFocus: () => set({ focusBlockId: undefined, focusAt: undefined }),
   };
 });

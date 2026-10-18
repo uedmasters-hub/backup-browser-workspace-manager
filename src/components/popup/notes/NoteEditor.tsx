@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 
 import { useNotesStore } from "../../../stores/notesStore";
+import { blockFields, editorFor, focusBlockAt, moveToBlock, startNextLine } from "./blockNav";
+import { filesToImages, insertImages } from "./images";
 
 import BlockRenderer from "./blocks/BlockRenderer";
 import PinPrompt from "./PinPrompt";
@@ -48,6 +50,11 @@ export default function NoteEditor({ note }: { note: Note }) {
     note.projectId ? s.projects.find((p) => p.id === note.projectId) : undefined
   );
 
+  // The last block is a Text block with something in it: offer the "next
+  // line" under it (a non-text last block already has an empty line after it).
+  const last = note.blocks[note.blocks.length - 1];
+  const showNextRow = last?.type === "text" && last.text.trim() !== "";
+
   const locked = Boolean(note.locked);
   const revealed = revealedId === note.id;
   const secured = locked && !revealed;
@@ -69,6 +76,63 @@ export default function NoteEditor({ note }: { note: Note }) {
   function download(format: NoteDownloadFormat) {
     // Export code loads on demand — it's only needed for downloads.
     void import("./noteDownload").then(({ downloadNote }) => downloadNote(note, format));
+  }
+
+  /** A click on the empty page below the last block continues the note. */
+  function onEmptyAreaMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.button !== 0) return;
+    const blocksEl = e.currentTarget.querySelector("[data-note-blocks]");
+    const target = e.target as HTMLElement;
+    if (target !== e.currentTarget && target !== blocksEl) return;
+    const lastBlock = blocksEl?.lastElementChild;
+    if (lastBlock && e.clientY < lastBlock.getBoundingClientRect().bottom) return;
+    e.preventDefault();
+    startNextLine();
+  }
+
+  /** Pictures dropped outside a text line are added at the end of the note. */
+  function onDropFiles(e: React.DragEvent<HTMLDivElement>) {
+    if (e.defaultPrevented || !e.dataTransfer.files.length) return;
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files);
+    startNextLine();
+    // The new line may be a new Text block — wait for its editor.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const blocks = useNotesStore.getState().notes.find((n) => n.id === note.id)?.blocks ?? [];
+        const lastBlock = blocks[blocks.length - 1];
+        const ed = lastBlock ? editorFor(lastBlock.id) : undefined;
+        if (ed) void filesToImages(files).then((imgs) => insertImages(ed, imgs));
+      })
+    );
+  }
+
+  /**
+   * Tab / Shift+Tab, ↑ ↓ for blocks made of fields (checklist, link,
+   * password, chart): to the next field in the block, then the next block.
+   * Text blocks and callouts handle their own keys (see blockNav).
+   */
+  function onFieldNavKey(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || e.nativeEvent.isComposing) return;
+    const tab = e.key === "Tab";
+    const vertical = (e.key === "ArrowDown" || e.key === "ArrowUp") && !e.shiftKey;
+    if (!tab && !vertical) return;
+    const target = e.target as HTMLElement;
+    if (target.isContentEditable) return;
+    if (vertical && !(target instanceof HTMLInputElement)) return;
+    const shell = target.closest<HTMLElement>("[data-block-id]");
+    const id = shell?.dataset.blockId;
+    if (!shell || !id) return;
+    const dir = tab ? (e.shiftKey ? -1 : 1) : e.key === "ArrowDown" ? 1 : -1;
+    const fields = blockFields(shell);
+    const i = fields.indexOf(target);
+    const next = i >= 0 ? fields[i + dir] : undefined;
+    e.preventDefault();
+    if (next) {
+      next.focus();
+      return;
+    }
+    moveToBlock(id, dir, tab && dir > 0);
   }
 
   // ----- Locked & hidden: a gate. No content, no export, no plain delete. -----
@@ -115,6 +179,14 @@ export default function NoteEditor({ note }: { note: Note }) {
           <input
             value={note.title}
             onChange={(e) => updateNoteTitle(note.id, e.target.value)}
+            onKeyDown={(e) => {
+              // Enter / ↓ / Tab from the title: into the note.
+              const into = e.key === "Enter" || e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey);
+              if (!into || e.nativeEvent.isComposing) return;
+              const first = note.blocks.find((b) => focusBlockAt(b.id, "start"));
+              if (first || note.blocks.length === 0) e.preventDefault();
+              if (!first) startNextLine();
+            }}
             placeholder="Untitled"
             aria-label="Note title"
             className="min-w-0 flex-1 bg-transparent px-1 text-base font-semibold text-neutral-900 outline-none placeholder:text-neutral-300"
@@ -213,15 +285,33 @@ export default function NoteEditor({ note }: { note: Note }) {
 
       <div
         data-notes-scroll
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6 pt-3"
+        onMouseDown={onEmptyAreaMouseDown}
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+        }}
+        onDrop={onDropFiles}
+        className="min-h-0 flex-1 cursor-text overflow-y-auto overscroll-contain px-5 pb-6 pt-3"
       >
         <div
-          className="space-y-1.5 py-1"
+          data-note-blocks
+          className="cursor-auto space-y-1.5 py-1"
           onBlur={() => ensureTrailingBlock()}
+          onKeyDown={onFieldNavKey}
         >
           {note.blocks.map((block) => (
             <BlockRenderer key={block.id} block={block} />
           ))}
+          {showNextRow && (
+            <div
+              className="bwm-next-row -mt-3.5 cursor-text px-3 pb-2 pt-0 text-[15px] leading-relaxed text-neutral-300 select-none"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                startNextLine();
+              }}
+            >
+              Write something, or press “/” for blocks…
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -18,6 +18,10 @@ type Props = {
   bare?: boolean;
   /** Only a placeholder so far — no toolbar until something is written. */
   empty?: boolean;
+  /** Text blocks read as part of the page: no hover surface. */
+  flat?: boolean;
+  /** Extra classes on the outer element (e.g. the "next line" marker). */
+  className?: string;
 };
 
 export default function BlockShell({
@@ -27,6 +31,8 @@ export default function BlockShell({
   copied = false,
   bare = false,
   empty = false,
+  flat = false,
+  className = "",
 }: Props) {
   const moveBlock = useNotesStore((s) => s.moveBlock);
   const deleteBlock = useNotesStore((s) => s.deleteBlock);
@@ -35,12 +41,15 @@ export default function BlockShell({
     "rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700";
 
   return (
-    <div className="group/block relative">
+    <div data-block-id={id} className={`group/block relative ${className}`}>
       <div
         className={
           bare
             ? ""
-            : "rounded-xl px-1 py-0.5 transition-colors group-hover/block:bg-neutral-50 group-focus-within/block:bg-transparent"
+            : flat
+              ? "px-1 py-0.5"
+              : // The hover surface never shows while the block is being edited.
+                "rounded-xl px-1 py-0.5 transition-colors [&:not(:focus-within)]:group-hover/block:bg-neutral-50"
         }
       >
         {children}

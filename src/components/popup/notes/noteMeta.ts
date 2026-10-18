@@ -11,6 +11,7 @@ export function preview(note: Note): string {
     }
     if (block.type === "link" && (block.label || block.url))
       return block.label || block.url;
+    if (block.type === "chart" && block.title.trim()) return block.title.trim();
   }
   return "Empty note";
 }

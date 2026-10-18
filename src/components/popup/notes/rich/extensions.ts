@@ -4,6 +4,10 @@ import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 import Highlight from "@tiptap/extension-highlight";
 import { Placeholder } from "@tiptap/extensions";
+import Image from "@tiptap/extension-image";
+import { TableKit } from "@tiptap/extension-table";
+
+import { isNoteImageSrc } from "../images";
 
 export const FONT_SIZES = ["small", "large", "huge"] as const;
 export type FontSizeValue = (typeof FONT_SIZES)[number];
@@ -74,8 +78,23 @@ const LineSpacing = Extension.create({
 export type RichVariant = "full" | "callout";
 
 /**
- * "full": Text blocks — headings, lists, sizes, alignment, spacing, links.
- * "callout": Callouts — inline styles, lists and links (no headings/sizes).
+ * Pictures live in the note itself (shrunk data: URLs — see ../images.ts),
+ * so they're saved, encrypted, backed up and exported with it. Only images
+ * the editor can show safely are read back: data: PNG/JPEG/GIF/WebP/SVG or
+ * an http(s) address (pasted from the web; inlined in the background).
+ */
+const NoteImage = Image.extend({
+  draggable: true,
+  parseHTML() {
+    return [{ tag: "img[src]", getAttrs: (el) => (isNoteImageSrc(el.getAttribute("src")) ? null : false) }];
+  },
+}).configure({ inline: false, allowBase64: true });
+
+/**
+ * "full": Text blocks — headings, lists, sizes, alignment, spacing, links,
+ * images and tables.
+ * "callout": Callouts — inline styles, lists and links (no headings/sizes;
+ * pasted tables keep their text, pictures are left out).
  */
 export function richExtensions(
   variant: RichVariant,
@@ -103,15 +122,19 @@ export function richExtensions(
     }),
     Highlight.configure({ multicolor: false }),
     ...(full
-      ? [TextAlign.configure({ types: ["heading", "paragraph"] }), FontSize, LineSpacing]
+      ? [
+          TextAlign.configure({ types: ["heading", "paragraph"] }),
+          FontSize,
+          LineSpacing,
+          NoteImage,
+          TableKit.configure({ table: { resizable: false, allowTableNodeSelection: true } }),
+        ]
       : []),
+    // Only an empty block shows a hint. New lines inside a block stay clean
+    // while you write; the "next line" row under the note carries the
+    // "/" hint instead (see NoteEditor).
     Placeholder.configure({
-      placeholder: ({ editor, node, pos }) => {
-        if (editor.isEmpty) return emptyPlaceholder;
-        // A quiet hint on an empty top-level line of a Text block.
-        if (!full || node.type.name !== "paragraph") return "";
-        return editor.state.doc.resolve(pos).depth === 0 ? "Type “/” for blocks" : "";
-      },
+      placeholder: ({ editor }) => (editor.isEmpty ? emptyPlaceholder : ""),
     }),
   ];
 }

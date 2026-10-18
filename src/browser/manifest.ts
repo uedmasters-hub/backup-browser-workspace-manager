@@ -20,6 +20,9 @@ export default defineManifest({
     "tabs",
     "tabGroups",
     "storage",
+    // Notes keep their pictures inside them; without this Chrome caps local
+    // storage at 10 MB and saves would start failing. No install warning.
+    "unlimitedStorage",
     "bookmarks",
     "history",
     "downloads",

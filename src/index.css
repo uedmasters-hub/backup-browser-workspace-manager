@@ -194,13 +194,72 @@ body {
 }
 .bwm-rich:not(.ProseMirror-focused) a:hover::after { opacity: 1; transform: translate(0.3em, 0); }
 
-/* Placeholders: the empty-block hint always; the "/" hint only on the line you're on. */
-.bwm-rich .is-editor-empty:first-child::before,
-.bwm-rich.ProseMirror-focused .is-empty::before {
+/* Placeholder: only an empty block shows its hint (lines you add while
+   writing stay clean). */
+.bwm-rich .is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
   height: 0;
   color: #d4d4d4;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+/* The "next line" under the note — the trailing empty block or the row after
+   the last line — keeps its hint out of the way while you're writing in
+   another block, and shows it again once you're done or move to it. */
+[data-note-blocks]:focus-within .bwm-next:not(:focus-within) .is-editor-empty::before,
+[data-note-blocks]:focus-within .bwm-next-row {
+  opacity: 0;
+}
+.bwm-next-row {
+  transition: opacity 0.15s;
+}
+
+/* Pictures and tables inside a note */
+.bwm-rich img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.35em 0;
+  border-radius: 8px;
+}
+.bwm-rich img.ProseMirror-selectednode {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+.bwm-rich .tableWrapper {
+  margin: 0.4em 0;
+  overflow-x: auto;
+}
+.bwm-rich table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  font-size: 0.93em;
+}
+.bwm-rich th,
+.bwm-rich td {
+  position: relative;
+  min-width: 3.5em;
+  border: 1px solid #e5e5e5;
+  padding: 0.3em 0.55em;
+  text-align: left;
+  vertical-align: top;
+}
+.bwm-rich th {
+  background: #fafafa;
+  font-weight: 600;
+}
+.bwm-rich td > p,
+.bwm-rich th > p {
+  margin: 0;
+}
+.bwm-rich .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(99 102 241 / 0.12);
   pointer-events: none;
 }
 

@@ -62,7 +62,34 @@ export function legacyTextToHtml(text: string): string {
  * #-headings, > quotes, **bold**), runs of blank lines are dropped, stray
  * non-breaking spaces become normal spaces.
  */
+const isNumberish = (cell: string) => /^[-+]?[$€£₹¥]?\s*[\d.,]+\s*%?$/.test(cell.trim());
+
+/**
+ * Tab-separated rows (copied from a spreadsheet or terminal as plain text)
+ * → a table. The first row becomes the header when it's all words over
+ * numeric data. Null when the text isn't tabular.
+ */
+export function tabularTextToHtml(text: string): string | null {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n").filter((l) => l.trim());
+  if (lines.length < 2 || !lines.every((l) => l.includes("\t"))) return null;
+  const rows = lines.map((l) => l.split("\t").map((c) => c.trim()));
+  const cols = Math.max(...rows.map((r) => r.length));
+  if (cols < 2 || cols > 30) return null;
+  const header =
+    rows[0].every((c) => c && !isNumberish(c)) && rows.slice(1).some((r) => r.some((c) => c && isNumberish(c)));
+  const html = rows
+    .map((r, i) => {
+      const tag = header && i === 0 ? "th" : "td";
+      const cells = Array.from({ length: cols }, (_, j) => `<${tag}><p>${r[j] ? inlineHtml(r[j]) : ""}</p></${tag}>`);
+      return `<tr>${cells.join("")}</tr>`;
+    })
+    .join("");
+  return `<table><tbody>${html}</tbody></table><p></p>`;
+}
+
 export function pastedTextToHtml(text: string): string {
+  const table = tabularTextToHtml(text);
+  if (table) return table;
   const lines = text.replace(/\r\n?/g, "\n").replace(/\u00a0/g, " ").split("\n");
   const out: string[] = [];
   let list: { kind: "ul" | "ol"; start: number; items: string[] } | null = null;
@@ -155,6 +182,25 @@ export function docToPlainText(doc: RichJSON): string {
         return (node.content ?? [])
           .flatMap((c) => render(c, ""))
           .map((l) => `${indent}> ${l}`.trimEnd());
+      case "image": {
+        const alt = typeof node.attrs?.alt === "string" ? node.attrs.alt.trim() : "";
+        return [`${indent}[Image${alt ? `: ${alt}` : ""}]`];
+      }
+      case "table":
+        // One line per row, cells separated by " | ".
+        return (node.content ?? []).map(
+          (row) =>
+            indent +
+            (row.content ?? [])
+              .map((cell) =>
+                (cell.content ?? [])
+                  .flatMap((c) => render(c, ""))
+                  .join(" ")
+                  .replace(/\s+/g, " ")
+                  .trim()
+              )
+              .join(" | ")
+        );
       default:
         return (node.content ?? []).flatMap((c) => render(c, indent));
     }
