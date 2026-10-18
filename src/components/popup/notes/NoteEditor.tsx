@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { useNotesStore } from "../../../stores/notesStore";
-import { blockFields, editorFor, focusBlockAt, moveToBlock, startNextLine } from "./blockNav";
+import { blockFields, deactivate, editorFor, focusBlockAt, moveToBlock, startNextLine } from "./blockNav";
 import { filesToImages, insertImages } from "./images";
 import { NEXT_LINE_HINT } from "./rich/extensions";
 
@@ -79,10 +79,15 @@ export default function NoteEditor({ note }: { note: Note }) {
     void import("./noteDownload").then(({ downloadNote }) => downloadNote(note, format));
   }
 
-  /** A click on the empty page below the last block continues the note. */
+  /**
+   * A click on the empty page below the last block: while a section is
+   * active it just turns inactive (the next line's hint appears); otherwise
+   * it continues the note.
+   */
   function onEmptyAreaMouseDown(e: React.MouseEvent<HTMLDivElement>) {
     if (e.button !== 0) return;
     const blocksEl = e.currentTarget.querySelector("[data-note-blocks]");
+    if (blocksEl?.contains(document.activeElement)) return;
     const target = e.target as HTMLElement;
     if (target !== e.currentTarget && target !== blocksEl) return;
     const lastBlock = blocksEl?.lastElementChild;
@@ -115,6 +120,15 @@ export default function NoteEditor({ note }: { note: Note }) {
    */
   function onFieldNavKey(e: React.KeyboardEvent<HTMLDivElement>) {
     if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || e.nativeEvent.isComposing) return;
+    // Esc in a checklist, link, chart… field: the section turns inactive.
+    if (e.key === "Escape" && !(e.target as HTMLElement).isContentEditable) {
+      const field = e.target as HTMLElement;
+      if (field.closest("[data-block-id]")) {
+        e.preventDefault();
+        deactivate(field);
+      }
+      return;
+    }
     const tab = e.key === "Tab";
     const vertical = (e.key === "ArrowDown" || e.key === "ArrowUp") && !e.shiftKey;
     if (!tab && !vertical) return;

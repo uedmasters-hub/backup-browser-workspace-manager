@@ -43,9 +43,9 @@ export default function BlockShell({
         className={
           bare
             ? ""
-            : // Hover highlights the section; while you're writing in it the
-              // surface stays clear, so the page reads as one document.
-              "rounded-xl px-1 py-0.5 transition-colors [&:not(:focus-within)]:group-hover/block:bg-neutral-50"
+            : // The section you're editing is highlighted; an inactive one
+              // (after a click outside or Esc) has no background.
+              "rounded-xl px-1 py-0.5 transition-colors duration-150 focus-within:bg-neutral-50"
         }
       >
         {children}

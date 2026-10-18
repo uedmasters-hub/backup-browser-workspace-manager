@@ -205,18 +205,20 @@ body {
   transition: opacity 0.15s;
 }
 
-/* The empty last line you've moved onto (Enter at the end of a block) is the
-   next section: it shows the hint, and the row under the note — which would
-   repeat it — steps aside. */
-.bwm-rich.ProseMirror-focused > p.is-empty:last-child:not(:first-child)::before {
-  content: attr(data-placeholder);
-  float: left;
-  height: 0;
-  color: #d4d4d4;
-  pointer-events: none;
+/* Active vs inactive sections. The section you're writing in shows no hint
+   inside it, and the next section's hint (the row under the note, or an
+   empty block) waits until the section above it is inactive — click
+   outside it or press Esc. */
+.bwm-text.ProseMirror-focused .is-editor-empty::before,
+[data-block-id]:focus-within + [data-block-id] .is-editor-empty::before {
+  opacity: 0;
 }
-[data-block-id]:has(.ProseMirror-focused > p.is-empty:last-child) + .bwm-next-row {
-  display: none;
+.bwm-next-row {
+  transition: opacity 0.15s ease-out;
+}
+[data-block-id]:focus-within + .bwm-next-row {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Pictures and tables inside a note */
