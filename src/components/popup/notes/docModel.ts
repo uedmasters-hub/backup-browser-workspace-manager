@@ -8,8 +8,9 @@
  * text. Link targets go through the same allow-list as the other exports.
  */
 import { blockHtml } from "./richText";
+import { chartData, formatNumber } from "./chart";
 
-import type { CalloutTone, Note, NoteBlock } from "../../../types/notes";
+import type { CalloutTone, ChartBlock, Note, NoteBlock } from "../../../types/notes";
 
 export type FontSize = "small" | "large" | "huge";
 
@@ -41,7 +42,28 @@ export interface DocList {
   marker: boolean;
 }
 
-export type DocKind = "title" | "meta" | "body" | "h1" | "h2" | "h3" | "code" | "divider";
+export type DocKind = "title" | "meta" | "body" | "h1" | "h2" | "h3" | "code" | "divider" | "image" | "table";
+
+/** A picture the writers can embed (PNG / JPEG / GIF bytes as base64). */
+export interface DocImage {
+  mime: "png" | "jpeg" | "gif";
+  base64: string;
+  /** Pixels (CSS). */
+  width: number;
+  height: number;
+  alt: string;
+}
+
+export interface DocCell {
+  header: boolean;
+  colspan: number;
+  rowspan: number;
+  paragraphs: DocParagraph[];
+}
+
+export interface DocTable {
+  rows: { cells: DocCell[] }[];
+}
 
 export interface DocParagraph {
   kind: DocKind;
@@ -56,6 +78,12 @@ export interface DocParagraph {
   check?: { done: boolean };
   /** First paragraph of a note block — gets a little room above it. */
   blockStart?: boolean;
+  /** Stay on the same page as the next paragraph (a chart's title). */
+  keepNext?: boolean;
+  /** kind "image". */
+  image?: DocImage;
+  /** kind "table". */
+  table?: DocTable;
 }
 
 export interface DocModel {
@@ -89,8 +117,25 @@ export function formatUpdated(ts: number): string {
 }
 
 /** Never exported, not even as text. */
-const DROP_TAGS = new Set(["SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "TEMPLATE", "NOSCRIPT", "SVG", "MATH", "IMG"]);
-const BLOCK_TAGS = /^(P|DIV|H[1-6]|UL|OL|LI|BLOCKQUOTE|PRE)$/;
+const DROP_TAGS = new Set(["SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "TEMPLATE", "NOSCRIPT", "SVG", "MATH", "COLGROUP"]);
+const BLOCK_TAGS = /^(P|DIV|H[1-6]|UL|OL|LI|BLOCKQUOTE|PRE|IMG|TABLE)$/;
+
+/** A data: URL the writers can embed, or null (WebP / SVG / web address). */
+export function embeddableImage(src: string | null | undefined, width?: unknown, height?: unknown, alt?: unknown): DocImage | null {
+  const m = (src ?? "").match(/^data:image\/(png|jpeg|gif);base64,([A-Za-z0-9+/=\s]+)$/i);
+  if (!m) return null;
+  const w = Number(width);
+  const h = Number(height);
+  return {
+    mime: m[1].toLowerCase() as DocImage["mime"],
+    base64: m[2].replace(/\s+/g, ""),
+    width: Number.isFinite(w) && w > 0 ? w : 480,
+    height: Number.isFinite(h) && h > 0 ? h : 320,
+    alt: typeof alt === "string" ? alt : "",
+  };
+}
+
+let listCounter = 1;
 
 type Marks = Omit<DocRun, "text" | "lineBreak">;
 
@@ -191,7 +236,6 @@ interface Ctx {
 
 class Builder {
   paragraphs: DocParagraph[] = [];
-  private nextListId = 1;
 
   push(p: Omit<DocParagraph, "quote" | "callout" | "list">, ctx: Ctx): void {
     const para: DocParagraph = { ...p };
@@ -231,13 +275,50 @@ class Builder {
       case "PRE":
         this.inline(el, "code", ctx);
         return;
+      case "IMG": {
+        const image = embeddableImage(el.getAttribute("src"), el.getAttribute("width"), el.getAttribute("height"), el.getAttribute("alt"));
+        if (image) {
+          this.push({ kind: "image", runs: [], image }, ctx);
+        } else {
+          // Fallback: a web picture becomes a link to it; anything else a label.
+          const href = safeHref(el.getAttribute("src"));
+          const alt = el.getAttribute("alt")?.trim();
+          this.push(
+            { kind: "body", runs: [{ text: `[Image${alt ? `: ${alt}` : ""}]`, muted: !href, href }] },
+            ctx
+          );
+        }
+        return;
+      }
+      case "TABLE": {
+        const rows = Array.from(el.querySelectorAll("tr")).filter((tr) => tr.closest("table") === el);
+        const table: DocTable = {
+          rows: rows.map((tr) => ({
+            cells: Array.from(tr.children)
+              .filter((c) => c.tagName === "TD" || c.tagName === "TH")
+              .map((c) => {
+                const inner = new Builder();
+                inner.children(c, { quote: 0 });
+                const span = (name: string) => Math.min(30, Math.max(1, Number(c.getAttribute(name)) || 1));
+                return {
+                  header: c.tagName === "TH",
+                  colspan: span("colspan"),
+                  rowspan: span("rowspan"),
+                  paragraphs: inner.paragraphs.length ? inner.paragraphs : [{ kind: "body", runs: [] }],
+                };
+              }),
+          })),
+        };
+        if (table.rows.some((r) => r.cells.length)) this.push({ kind: "table", runs: [], table }, { quote: 0 });
+        return;
+      }
       case "BLOCKQUOTE":
         this.children(el, { ...ctx, quote: ctx.quote + 1 });
         return;
       case "UL":
       case "OL": {
         const ordered = el.tagName === "OL";
-        const listId = this.nextListId++;
+        const listId = listCounter++;
         const level = ctx.list ? ctx.list.level + 1 : 0;
         const start = ordered ? Number(el.getAttribute("start") ?? 1) || 1 : 1;
         Array.from(el.children)
@@ -288,6 +369,42 @@ class Builder {
   }
 }
 
+/** A chart: its title, then the picture (when rendered) or its data as a table. */
+function addChart(b: Builder, block: ChartBlock, picture: DocImage | undefined): void {
+  const data = chartData(block);
+  const title = block.title.trim() || "Chart";
+  b.push({ kind: "body", runs: [{ text: title, bold: true }], keepNext: true }, { quote: 0 });
+  if (picture) {
+    b.push({ kind: "image", runs: [], image: { ...picture, alt: picture.alt || title } }, { quote: 0 });
+    return;
+  }
+  if (!data.length) {
+    b.push({ kind: "body", runs: [{ text: "No data yet", muted: true }] }, { quote: 0 });
+    return;
+  }
+  const cell = (text: string, header = false): DocCell => ({
+    header,
+    colspan: 1,
+    rowspan: 1,
+    paragraphs: [{ kind: "body", runs: [{ text, bold: header || undefined }] }],
+  });
+  b.push(
+    {
+      kind: "table",
+      runs: [],
+      table: {
+        rows: [
+          { cells: [cell("Label", true), cell("Value", true)] },
+          ...data.map((d) => ({ cells: [cell(d.label), cell(formatNumber(d.value))] })),
+        ],
+      },
+    },
+    { quote: 0 }
+  );
+}
+
+let chartImages: Record<string, DocImage> | undefined;
+
 function addBlock(b: Builder, block: NoteBlock): void {
   const startAt = b.paragraphs.length;
   switch (block.type) {
@@ -333,6 +450,9 @@ function addBlock(b: Builder, block: NoteBlock): void {
         { quote: 0 }
       );
       break;
+    case "chart":
+      addChart(b, block, chartImages?.[block.id]);
+      break;
   }
   if (b.paragraphs.length > startAt) b.paragraphs[startAt].blockStart = true;
 }
@@ -342,8 +462,10 @@ function addBlock(b: Builder, block: NoteBlock): void {
  * Pass the note as the editor shows it (a locked note must be revealed first;
  * `note.locked` alone never hides content here — the caller decides).
  */
-export function buildDocModel(note: Note): DocModel {
+export function buildDocModel(note: Note, pictures?: Record<string, DocImage>): DocModel {
   const title = note.title.trim().replace(/\s+/g, " ") || "Untitled";
+  listCounter = 1;
+  chartImages = pictures;
   const b = new Builder();
   b.paragraphs.push({ kind: "title", runs: [{ text: title }] });
   b.paragraphs.push({ kind: "meta", runs: [{ text: `Updated ${formatUpdated(note.updatedAt)}`, muted: true }] });
@@ -361,6 +483,7 @@ export function buildDocModel(note: Note): DocModel {
     b.paragraphs.pop();
   }
   if (b.paragraphs[bodyStart]) b.paragraphs[bodyStart].blockStart = false;
+  chartImages = undefined;
   return { title, updatedAt: note.updatedAt, paragraphs: b.paragraphs };
 }
 
@@ -471,3 +594,76 @@ export const COLORS = {
     success: { fill: "ECFDF5", line: "10B981" },
   },
 } as const;
+
+// ───────────────────────── tables ─────────────────────────
+
+export interface GridSlot {
+  /** null = covered by a cell above (row span). */
+  cell: DocCell | null;
+  span: number;
+  vmerge?: "restart" | "continue";
+}
+
+/**
+ * Table rows laid out on a grid: row spans become "continue" slots in the
+ * rows they cover, short rows are padded, so every row fills `cols`.
+ */
+export function tableGrid(table: DocTable): { cols: number; rows: GridSlot[][] } {
+  const carry = new Map<number, { left: number; span: number }>();
+  const rows: GridSlot[][] = [];
+  for (const row of table.rows) {
+    const out: GridSlot[] = [];
+    let col = 0;
+    const takeCarries = () => {
+      let c = carry.get(col);
+      while (c) {
+        out.push({ cell: null, span: c.span, vmerge: "continue" });
+        c.left -= 1;
+        if (c.left <= 0) carry.delete(col);
+        col += c.span;
+        c = carry.get(col);
+      }
+    };
+    for (const cell of row.cells) {
+      takeCarries();
+      out.push({ cell, span: cell.colspan, vmerge: cell.rowspan > 1 ? "restart" : undefined });
+      if (cell.rowspan > 1) carry.set(col, { left: cell.rowspan - 1, span: cell.colspan });
+      col += cell.colspan;
+    }
+    // Spans still reaching into this row after its last cell.
+    for (const start of [...carry.keys()].sort((a, b) => a - b)) {
+      if (start < col) continue;
+      while (col < start) {
+        out.push({ cell: null, span: 1 });
+        col += 1;
+      }
+      takeCarries();
+    }
+    rows.push(out);
+  }
+  const cols = Math.max(1, ...rows.map((r) => r.reduce((n, s) => n + s.span, 0)));
+  for (const r of rows) {
+    let width = r.reduce((n, s) => n + s.span, 0);
+    while (width < cols) {
+      r.push({ cell: null, span: 1 });
+      width += 1;
+    }
+  }
+  return { cols, rows };
+}
+
+/** Width available between the margins, in twips. */
+export function contentWidth(page: PageSetup): number {
+  return page.width - page.margin * 2;
+}
+
+/** Picture size in twips, shrunk to fit `maxWidth`. */
+export function imageTwips(image: DocImage, maxWidth: number): { width: number; height: number } {
+  let width = image.width * 15;
+  let height = image.height * 15;
+  if (width > maxWidth) {
+    height = Math.round((height * maxWidth) / width);
+    width = maxWidth;
+  }
+  return { width: Math.round(width), height: Math.round(height) };
+}

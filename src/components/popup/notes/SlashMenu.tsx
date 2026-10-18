@@ -1,13 +1,14 @@
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { filterBlockTypes } from "./blockTypes";
-import type { NoteBlockType } from "../../../types/notes";
+import type { SlashType } from "./blockTypes";
 
 type Props = {
   query: string;
   activeIndex: number;
   anchor: DOMRect | null;
-  onPick: (type: NoteBlockType) => void;
+  onPick: (type: SlashType) => void;
   onHover: (index: number) => void;
 };
 
@@ -22,6 +23,14 @@ export default function SlashMenu({
   onHover,
 }: Props) {
   const items = filterBlockTypes(query);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Keep the highlighted item visible while moving with ↑ ↓.
+  useEffect(() => {
+    listRef.current
+      ?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, query]);
 
   if (items.length === 0 || !anchor) {
     return null;
@@ -39,6 +48,7 @@ export default function SlashMenu({
 
   return createPortal(
     <div
+      ref={listRef}
       style={{
         position: "fixed",
         top,
@@ -49,7 +59,7 @@ export default function SlashMenu({
       className="z-50 overflow-y-auto overscroll-contain rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-xl"
     >
       <div className="px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-        Turn into
+        Blocks
       </div>
       {items.map((item, index) => {
         const Icon = item.Icon;
@@ -58,6 +68,7 @@ export default function SlashMenu({
           <button
             key={item.type}
             type="button"
+            data-index={index}
             onMouseDown={(e) => {
               e.preventDefault();
               onPick(item.type);

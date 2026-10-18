@@ -8,13 +8,16 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import BlockShell from "./BlockShell";
 import SlashMenu from "../SlashMenu";
 import FormatToolbar from "../rich/FormatToolbar";
+import TableControls from "../rich/TableControls";
 import { useRichEditor } from "../rich/useRichEditor";
 import { useCopy } from "../useCopy";
-import { filterBlockTypes, isBlockEmpty } from "../blockTypes";
+import { filterBlockTypes, isBlockEmpty, type SlashType } from "../blockTypes";
 import { blockHtml, docToPlainText, type RichJSON, type RichPart } from "../richText";
+import { handleRichNavKey, registerEditor, trimTrailingEmptyLines } from "../blockNav";
+import { filesToImages, insertImages } from "../images";
 import { useNotesStore } from "../../../../stores/notesStore";
 
-import type { NoteBlockType, TextBlock } from "../../../../types/notes";
+import type { TextBlock } from "../../../../types/notes";
 
 type Slash = { query: string; anchor: DOMRect; from: number; to: number; index: number };
 
@@ -48,10 +51,21 @@ export default function TextBlockView({ block }: { block: TextBlock }) {
   const splitTextBlock = useNotesStore((s) => s.splitTextBlock);
   const deleteBlockFocusPrev = useNotesStore((s) => s.deleteBlockFocusPrev);
   const focusBlockId = useNotesStore((s) => s.focusBlockId);
+  const focusAt = useNotesStore((s) => s.focusAt);
   const consumeFocus = useNotesStore((s) => s.consumeFocus);
   const blockCount = useNotesStore(
     (s) => s.notes.find((n) => n.id === s.activeNoteId)?.blocks.length ?? 0
   );
+  // The empty line kept at the end of the note (after a checklist, link…):
+  // it's the "next line", so its hint waits until you're done writing above.
+  const isNextLine = useNotesStore((s) => {
+    const blocks = s.notes.find((n) => n.id === s.activeNoteId)?.blocks ?? [];
+    return blocks.length > 1 && blocks[blocks.length - 1].id === block.id;
+  });
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  /** A picture is being chosen — keep the empty line it will go on. */
+  const choosingImage = useRef(false);
 
   const [copied, copy] = useCopy();
   const [slash, setSlash] = useState<Slash | null>(null);
@@ -73,12 +87,24 @@ export default function TextBlockView({ block }: { block: TextBlock }) {
   }, []);
 
   const pick = useCallback(
-    (type: NoteBlockType, editor: Editor) => {
+    (type: SlashType, editor: Editor) => {
       const current = slashRef.current ?? readSlash(editor);
       setSlash(null);
       if (!current) return;
+      const range = { from: current.from, to: current.to };
       if (type === "text") {
-        editor.chain().focus().deleteRange({ from: current.from, to: current.to }).run();
+        editor.chain().focus().deleteRange(range).run();
+        return;
+      }
+      // Pictures and tables go right here, inside the text.
+      if (type === "image") {
+        editor.chain().focus().deleteRange(range).run();
+        choosingImage.current = true;
+        fileRef.current?.click();
+        return;
+      }
+      if (type === "table") {
+        editor.chain().focus().deleteRange(range).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
         return;
       }
       const before: PMNode[] = [];
@@ -97,9 +123,13 @@ export default function TextBlockView({ block }: { block: TextBlock }) {
     html: blockHtml(block),
     placeholder: "Write something, or press “/” for blocks…",
     autoFocus: focusBlockId === block.id,
+    focusAt,
     onAutoFocused: consumeFocus,
     onChange: (part) => updateBlock(block.id, part),
     onSelectionChange: syncSlash,
+    onBlur: (ed) => {
+      if (!choosingImage.current) trimTrailingEmptyLines(ed);
+    },
     onKeyDown: (event, ed) => {
       const current = slashRef.current;
       if (current) {
@@ -119,6 +149,8 @@ export default function TextBlockView({ block }: { block: TextBlock }) {
           return true;
         }
       }
+      // Tab / Shift+Tab, and ↑ ↓ at the first / last line: neighbouring blocks.
+      if (handleRichNavKey(event, ed, block.id)) return true;
       // Backspace in an empty block removes it (unless it's the only one).
       if (event.key === "Backspace" && ed.isEmpty && blockCount > 1) {
         deleteBlockFocusPrev(block.id);
@@ -140,6 +172,21 @@ export default function TextBlockView({ block }: { block: TextBlock }) {
     };
   }, [slash, editor]);
 
+  // Closing the picker without a choice: back to writing.
+  useEffect(() => {
+    const input = fileRef.current;
+    if (!input || !editor) return;
+    const onCancel = () => {
+      choosingImage.current = false;
+      editor.commands.focus();
+    };
+    input.addEventListener("cancel", onCancel);
+    return () => input.removeEventListener("cancel", onCancel);
+  }, [editor]);
+
+  // Tab / arrows from other blocks find this editor here.
+  useEffect(() => (editor ? registerEditor(block.id, editor) : undefined), [editor, block.id]);
+
   if (!editor) return null;
 
   return (
@@ -148,10 +195,28 @@ export default function TextBlockView({ block }: { block: TextBlock }) {
       onCopy={() => copy(block.text, block.html)}
       copied={copied}
       empty={isBlockEmpty(block)}
+      flat
+      className={isNextLine && isBlockEmpty(block) ? "bwm-next" : ""}
     >
-      <div className="relative">
+      <div className="relative" ref={wrapperRef}>
         <EditorContent editor={editor} />
         <FormatToolbar editor={editor} variant="full" suppress={() => slashRef.current !== null} />
+        <TableControls editor={editor} wrapper={wrapperRef} />
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={(e) => {
+            const files = Array.from(e.currentTarget.files ?? []);
+            e.currentTarget.value = "";
+            void filesToImages(files).then((imgs) => {
+              choosingImage.current = false;
+              insertImages(editor, imgs);
+            });
+          }}
+        />
         {slash && (
           <SlashMenu
             query={slash.query}

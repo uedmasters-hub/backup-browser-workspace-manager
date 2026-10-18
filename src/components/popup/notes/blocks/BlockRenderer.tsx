@@ -4,6 +4,7 @@ import LinkBlockView from "./LinkBlockView";
 import CalloutBlockView from "./CalloutBlockView";
 import DividerBlockView from "./DividerBlockView";
 import PasswordBlockView from "./PasswordBlockView";
+import ChartBlockView from "./ChartBlockView";
 
 import type { NoteBlock } from "../../../../types/notes";
 
@@ -21,5 +22,7 @@ export default function BlockRenderer({ block }: { block: NoteBlock }) {
       return <DividerBlockView block={block} />;
     case "password":
       return <PasswordBlockView block={block} />;
+    case "chart":
+      return <ChartBlockView block={block} />;
   }
 }

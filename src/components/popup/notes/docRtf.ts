@@ -9,12 +9,15 @@ import {
   KIND_HALF_POINTS,
   LINE_240,
   SIZE_HALF_POINTS,
+  contentWidth,
+  imageTwips,
   indentOf,
   orderedMarker,
   spacingOf,
+  tableGrid,
 } from "./docModel";
 
-import type { DocModel, DocParagraph, DocRun, PageSetup } from "./docModel";
+import type { DocImage, DocModel, DocParagraph, DocRun, DocTable, PageSetup } from "./docModel";
 
 /** Text → RTF: specials escaped, everything past ASCII as \uN? (UTF-16 units). */
 export function rtfEscape(text: string): string {
@@ -97,20 +100,49 @@ function runsRtf(runs: DocRun[], base: number, inCode: boolean): string {
   return out;
 }
 
-function paragraphRtf(p: DocParagraph): string {
+function base64ToHex(base64: string): string {
+  const bin = atob(base64);
+  let hex = "";
+  for (let i = 0; i < bin.length; i++) {
+    hex += bin.charCodeAt(i).toString(16).padStart(2, "0");
+    if (i % 64 === 63) hex += "\n";
+  }
+  return hex;
+}
+
+/** PNG / JPEG picture; GIFs (no RTF form) fall back to their label. */
+function pictureRtf(image: DocImage, maxWidth: number): string {
+  if (image.mime === "gif") return `{\\i\\cf${C.muted} ${rtfEscape(`[Image${image.alt ? `: ${image.alt}` : ""}]`)}}`;
+  const size = imageTwips(image, maxWidth);
+  const blip = image.mime === "png" ? "\\pngblip" : "\\jpegblip";
+  return (
+    `{\\pict${blip}\\picw${Math.round(image.width)}\\pich${Math.round(image.height)}` +
+    `\\picwgoal${size.width}\\pichgoal${size.height}\n${base64ToHex(image.base64)}}`
+  );
+}
+
+interface Layout {
+  /** Room for pictures (twips). */
+  maxWidth: number;
+}
+
+/** One paragraph; `end` is \par, or \cell for the last one in a table cell. */
+function paragraphRtf(p: DocParagraph, layout: Layout, inTable = false, end = "\\par"): string {
+  if (p.kind === "table" && p.table) return tableRtf(p.table, layout);
+
   const base = KIND_HALF_POINTS[p.kind] ?? BASE_HALF_POINTS;
-  const { before, after } = spacingOf(p);
+  const { before, after } = inTable ? { before: 0, after: 0 } : spacingOf(p);
   const { left, hanging } = indentOf(p);
   const line = LINE_240[p.spacing ?? "normal"];
 
-  let pp = `\\pard\\plain\\sb${before}\\sa${after}\\sl${line}\\slmult1`;
+  let pp = `\\pard\\plain${inTable ? "\\intbl" : ""}\\sb${before}\\sa${after}\\sl${line}\\slmult1`;
   if (left) pp += `\\li${left}`;
   if (hanging) pp += `\\fi-${hanging}\\tx${left}`;
   pp += p.align ? { center: "\\qc", right: "\\qr", justify: "\\qj" }[p.align] : "\\ql";
   if (p.kind === "h1") pp += "\\outlinelevel0\\keepn";
   if (p.kind === "h2") pp += "\\outlinelevel1\\keepn";
   if (p.kind === "h3") pp += "\\outlinelevel2\\keepn";
-  if (p.kind === "title") pp += "\\keepn";
+  if (p.kind === "title" || p.keepNext) pp += "\\keepn";
   if (p.kind === "code") pp += `\\cbpat${C.codeBg}\\brdrl\\brdrs\\brdrw10\\brdrcf${C.codeBg}\\brsp100`;
   if (p.quote) pp += `\\brdrl\\brdrs\\brdrw20\\brdrcf${C.border}\\brsp120`;
   if (p.callout) {
@@ -127,8 +159,52 @@ function paragraphRtf(p: DocParagraph): string {
     marker = `{\\f${F.symbol}\\fs${base}\\cf${p.check.done ? C.link : C.muted} ${rtfEscape(p.check.done ? "☑" : "☐")}}\\tab `;
   }
 
+  if (p.kind === "image" && p.image) return `${pp} ${marker}${pictureRtf(p.image, layout.maxWidth - left)}${end}\n`;
   const runs = p.kind === "title" || p.kind.startsWith("h") ? p.runs.map((r) => ({ ...r, bold: true })) : p.runs;
-  return `${pp} ${marker}${runsRtf(runs, base, p.kind === "code")}\\par\n`;
+  return `${pp} ${marker}${runsRtf(runs, base, p.kind === "code")}${end}\n`;
+}
+
+/** A table: equal columns across the page, light borders, shaded header cells. */
+function tableRtf(table: DocTable, layout: Layout): string {
+  const grid = tableGrid(table);
+  const colW = Math.floor(layout.maxWidth / grid.cols);
+  const border = (side: string) => `\\clbrdr${side}\\brdrs\\brdrw10\\brdrcf${C.border}`;
+  let out = "";
+  grid.rows.forEach((row, ri) => {
+    const header = row.some((s) => s.cell?.header) && row.every((s) => !s.cell || s.cell.header);
+    let defs = `\\trowd\\trgaph100\\trleft0\\trautofit1${header && ri === 0 ? "\\trhdr" : ""}`;
+    let x = 0;
+    for (const slot of row) {
+      x += colW * slot.span;
+      defs += slot.vmerge === "restart" ? "\\clvmgf" : slot.vmerge === "continue" ? "\\clvmrg" : "";
+      defs += border("t") + border("l") + border("b") + border("r");
+      if (slot.cell?.header) defs += `\\clcbpat${C.codeBg}`;
+      defs += `\\cellx${x}`;
+    }
+    const cells = row
+      .map((slot) => {
+        // A table inside a cell is written as lines of text (RTF nesting is fragile).
+        const paras = (slot.cell?.paragraphs ?? [{ kind: "body" as const, runs: [] }]).flatMap((p) =>
+          p.kind === "table" && p.table
+            ? p.table.rows.map((r): DocParagraph => ({
+                kind: "body",
+                runs: [{ text: r.cells.map((c) => c.paragraphs.flatMap((q) => q.runs.map((x) => x.text)).join(" ")).join(" | ") }],
+              }))
+            : [p]
+        );
+        const inner = { maxWidth: colW * slot.span - 200 };
+        return paras
+          .map((p, i) => {
+            const q = slot.cell?.header ? { ...p, runs: p.runs.map((r) => ({ ...r, bold: true })) } : p;
+            return paragraphRtf({ ...q, blockStart: false }, inner, true, i === paras.length - 1 ? "\\cell" : "\\par");
+          })
+          .join("");
+      })
+      .join("");
+    out += `{${defs}\n${cells}\\row}\n`;
+  });
+  // Room after the table before what follows.
+  return `${out}\\pard\\plain\\sa60\\fs8\\par\n`;
 }
 
 function rtfDate(ts: number): string {
@@ -145,5 +221,6 @@ export function docToRtf(doc: DocModel, page: PageSetup, exportedAt = Date.now()
     `\\paperw${page.width}\\paperh${page.height}\\margl${page.margin}\\margr${page.margin}\\margt${page.margin}\\margb${page.margin}`,
     "\\viewkind4\\widowctrl",
   ].join("\n");
-  return `${header}\n${doc.paragraphs.map(paragraphRtf).join("")}}\n`;
+  const layout = { maxWidth: contentWidth(page) };
+  return `${header}\n${doc.paragraphs.map((p) => paragraphRtf(p, layout)).join("")}}\n`;
 }

@@ -8,6 +8,7 @@ import { cleanPastedHtml } from "../pasteCleanup";
 import { docToPlainText, escapeHtml, pastedTextToHtml, type RichJSON, type RichPart } from "../richText";
 import { toHref } from "../linkify";
 import { openLinkInNewTab } from "../../../../browser/services/navigationService";
+import { filesToImages, inlineForeignImages, insertImages, isImageFile } from "../images";
 
 /** Fired on the editor's DOM to open the toolbar's link field (⌘K). */
 export const LINK_EVENT = "bwm:edit-link";
@@ -23,6 +24,16 @@ export function editorPart(editor: Editor): RichPart {
     html: editor.getHTML(),
     text: docToPlainText(editor.getJSON() as RichJSON),
   };
+}
+
+/** Clipboard HTML that points at pictures only the clipboard itself carries (Word, Outlook). */
+function referencesLocalImages(html: string): boolean {
+  return /<img[^>]+src=["']?(file:|blob:|cid:)/i.test(html) || /v:imagedata/i.test(html);
+}
+
+function htmlHasWords(html: string): boolean {
+  if (!html) return false;
+  return Boolean(new DOMParser().parseFromString(html, "text/html").body.textContent?.trim());
 }
 
 /** Pasted plain text (no HTML on the clipboard), parsed in an inert document. */
@@ -48,11 +59,14 @@ type Options = {
   html: string;
   placeholder: string;
   autoFocus: boolean;
+  /** Where the caret goes on auto-focus (default: end). */
+  focusAt?: "start" | "end";
   onAutoFocused: () => void;
   onChange: (part: RichPart) => void;
   /** Return true to swallow the key (slash menu, Backspace on empty, …). */
   onKeyDown?: (event: KeyboardEvent, editor: Editor) => boolean;
   onSelectionChange?: (editor: Editor) => void;
+  onBlur?: (editor: Editor) => void;
 };
 
 /**
@@ -75,6 +89,7 @@ export function useRichEditor(o: Options): Editor | null {
   const lastEmitted = useRef(o.html);
   const pendingOpen = useRef<{ href: string; background: boolean } | null>(null);
   const editorRef = useRef<Editor | null>(null);
+  const inlineTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Built once: callbacks read the latest props through refs. A stable options
   // object also stops Tiptap re-applying options on every keystroke.
@@ -90,6 +105,41 @@ export function useRichEditor(o: Options): Editor | null {
       editorProps: {
         attributes: { class: CLASSES[o.variant], spellcheck: "true" },
         transformPastedHTML: cleanPastedHtml,
+        // Pictures on the clipboard (screenshots, copied images, Word/Excel
+        // charts). Text wins when there is any — e.g. Excel cells also put a
+        // picture of themselves on the clipboard; the table is what you want.
+        handlePaste(_view, event) {
+          const ed = editorRef.current;
+          const data = event.clipboardData;
+          if (!ed || !data) return false;
+          const files = Array.from(data.files).filter(isImageFile);
+          if (!files.length) return false;
+          if (o.variant !== "full") return false; // callouts keep text only
+          const html = data.getData("text/html");
+          const words = htmlHasWords(html) || Boolean(data.getData("text/plain").trim());
+          if (!words) {
+            event.preventDefault();
+            void filesToImages(files).then((imgs) => insertImages(ed, imgs));
+            return true;
+          }
+          if (referencesLocalImages(html)) {
+            // The text pastes normally; its pictures follow it.
+            setTimeout(() => void filesToImages(files).then((imgs) => insertImages(ed, imgs)), 0);
+          }
+          return false;
+        },
+        // Files dropped in: pictures go where they're dropped; anything else
+        // is ignored (rather than the popup navigating away to the file).
+        handleDrop(view, event, _slice, moved) {
+          const ed = editorRef.current;
+          const files = Array.from(event.dataTransfer?.files ?? []);
+          if (moved || !ed || !files.length) return false;
+          event.preventDefault();
+          if (o.variant !== "full") return true;
+          const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+          void filesToImages(files).then((imgs) => insertImages(ed, imgs, pos));
+          return true;
+        },
         clipboardTextParser(text, $context, plain, view) {
           return plainSlice(text, plain, view, $context);
         },
@@ -140,7 +190,14 @@ export function useRichEditor(o: Options): Editor | null {
           },
         },
       },
+      onCreate({ editor: ed }) {
+        if (o.variant === "full") inlineForeignImages(ed);
+      },
       onUpdate({ editor: ed }) {
+        if (o.variant === "full") {
+          if (inlineTimer.current) clearTimeout(inlineTimer.current);
+          inlineTimer.current = setTimeout(() => inlineForeignImages(ed), 300);
+        }
         const part = editorPart(ed);
         lastEmitted.current = part.html;
         latest.current.onChange(part);
@@ -148,6 +205,9 @@ export function useRichEditor(o: Options): Editor | null {
       },
       onSelectionUpdate({ editor: ed }) {
         latest.current.onSelectionChange?.(ed);
+      },
+      onBlur({ editor: ed }) {
+        latest.current.onBlur?.(ed);
       },
     }
   ));
@@ -169,7 +229,11 @@ export function useRichEditor(o: Options): Editor | null {
 
   useEffect(() => {
     if (!editor || editor.isDestroyed || !o.autoFocus) return;
-    editor.commands.focus("end");
+    const at = latest.current.focusAt ?? "end";
+    // Focus right away (keys typed straight after Tab / Enter land here).
+    editor.commands.setTextSelection(at === "start" ? 0 : editor.state.doc.content.size);
+    editor.view.focus();
+    editor.commands.scrollIntoView();
     latest.current.onAutoFocused();
   }, [editor, o.autoFocus]);
 

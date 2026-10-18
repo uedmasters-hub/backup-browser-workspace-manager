@@ -1,7 +1,9 @@
 /**
  * Project download: a ZIP with one folder named after the project, holding
- *   - one Markdown file per note (numbered to keep the project's order), and
- *   - "<Project>.html" — every note, fully formatted, readable in any browser.
+ *   - one Markdown file per note (numbered to keep the project's order),
+ *   - "images/" — the pictures those Markdown files show, and
+ *   - "<Project>.html" — every note, fully formatted (pictures, tables and
+ *     charts included), readable in any browser.
  *
  * Locked notes are listed but their content is never written out.
  * Stored note HTML is re-built from an allow-list (never copied raw), and the
@@ -9,8 +11,24 @@
  */
 import { zipStore, strToU8 } from "../../../browser/backup/zip";
 import { blockHtml, escapeHtml } from "./richText";
+import { chartData, chartSvg, formatNumber } from "./chart";
 
-import type { CalloutTone, Note, NoteBlock, NoteProject } from "../../../types/notes";
+import type { CalloutTone, ChartBlock, Note, NoteBlock, NoteProject } from "../../../types/notes";
+
+/**
+ * Where a picture goes when a note is written as Markdown: return the
+ * relative path it was saved under, or null to write a text placeholder.
+ */
+export type ImageSink = (src: string, alt: string) => string | null;
+let imageSink: ImageSink | null = null;
+
+function imageMd(src: string | null, alt: string): string {
+  const path = src ? imageSink?.(src, alt) : null;
+  const label = alt.replace(/[[\]\n]/g, " ").trim();
+  if (path) return `![${label}](${path})`;
+  const web = /^https?:\/\//i.test(src ?? "") ? src : null;
+  return web ? `![${label}](${escapeMdUrl(web)})` : `*[Image${label ? `: ${label}` : ""}]*`;
+}
 
 // ───────────────────────── file names ─────────────────────────
 
@@ -77,6 +95,8 @@ function inlineMd(node: Node): string {
       return "`" + (el.textContent ?? "").replace(/`/g, "\\`") + "`";
     case "BR":
       return "  \n";
+    case "IMG":
+      return imageMd(el.getAttribute("src"), el.getAttribute("alt") ?? "");
     case "A": {
       const href = safeHref(el.getAttribute("href"));
       const text = inner();
@@ -138,9 +158,46 @@ function blockMd(el: Element, indent = ""): string[] {
         .map((l) => `${indent}> ${l}`.trimEnd());
     case "PRE":
       return [`${indent}\`\`\``, ...(el.textContent ?? "").replace(/\n$/, "").split("\n").map((l) => indent + l), `${indent}\`\`\``];
+    case "IMG":
+      return [indent + imageMd(el.getAttribute("src"), el.getAttribute("alt") ?? "")];
+    case "TABLE":
+      return tableMd(el).map((l) => indent + l);
     default:
       return children();
   }
+}
+
+/** A GitHub-style table; the first row is the header (Markdown needs one). */
+function tableMd(table: Element): string[] {
+  const rows = Array.from(table.querySelectorAll("tr"))
+    .filter((tr) => tr.closest("table") === table)
+    .map((tr) =>
+      Array.from(tr.children)
+        .filter((c) => c.tagName === "TD" || c.tagName === "TH")
+        .flatMap((c) => {
+          const text = Array.from(c.children)
+            .flatMap((child) => blockMd(child))
+            .join("<br>")
+            .replace(/\n/g, " ")
+            .replace(/\|/g, "\\|")
+            .trim();
+          const span = Math.max(1, Number(c.getAttribute("colspan")) || 1);
+          return [text || (c.textContent ?? "").trim().replace(/\|/g, "\\|"), ...Array(span - 1).fill("")];
+        })
+    )
+    .filter((r) => r.length);
+  if (!rows.length) return [];
+  const cols = Math.max(...rows.map((r) => r.length));
+  const line = (r: string[]) => `| ${Array.from({ length: cols }, (_, i) => r[i] ?? "").join(" | ")} |`;
+  return [line(rows[0]), `|${" --- |".repeat(cols)}`, ...rows.slice(1).map(line)];
+}
+
+function chartMd(block: ChartBlock): string {
+  const data = chartData(block);
+  const title = block.title.trim().replace(MD_SPECIAL, "\\$1") || "Chart";
+  if (!data.length) return `**${title}** — *chart, no data yet*`;
+  const rows = data.map((d) => `| ${d.label.replace(/\|/g, "\\|")} | ${formatNumber(d.value)} |`);
+  return [`**${title}** (${block.kind} chart)`, "", "| Label | Value |", "| --- | ---: |", ...rows].join("\n");
 }
 
 /** Rich note HTML → Markdown (paragraphs separated by blank lines). */
@@ -179,10 +236,22 @@ function blockToMarkdown(block: NoteBlock): string {
       return "---";
     case "password":
       return `🔒 **${(block.label || "Password").replace(MD_SPECIAL, "\\$1")}** — encrypted, not included in exports`;
+    case "chart":
+      return chartMd(block);
   }
 }
 
-export function noteToMarkdown(note: Note): string {
+/** `images` saves pictures next to the Markdown file (see buildProjectArchive). */
+export function noteToMarkdown(note: Note, images?: ImageSink): string {
+  imageSink = images ?? null;
+  try {
+    return noteMarkdown(note);
+  } finally {
+    imageSink = null;
+  }
+}
+
+function noteMarkdown(note: Note): string {
   const title = note.title.trim() || "Untitled";
   if (note.locked) {
     return `# ${title}\n\n🔒 This note is locked. Its content stays encrypted and isn't included in exports.\n`;
@@ -209,7 +278,11 @@ function safeHref(href: string | null | undefined): string | null {
 const KEEP_TAGS = new Set([
   "P", "H1", "H2", "H3", "UL", "OL", "LI", "BLOCKQUOTE", "PRE", "CODE",
   "STRONG", "B", "EM", "I", "U", "S", "DEL", "MARK", "A", "BR", "SPAN",
+  "TABLE", "THEAD", "TBODY", "TR", "TH", "TD", "IMG",
 ]);
+
+/** Pictures the exported page can show (it only allows data: images). */
+const PAGE_IMAGE = /^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/;
 
 /** Rebuild note HTML from an allow-list of tags and attributes. */
 export function sanitizeHtml(html: string): string {
@@ -223,6 +296,20 @@ export function sanitizeHtml(html: string): string {
     if (!KEEP_TAGS.has(el.tagName)) return inner;
     const tag = el.tagName.toLowerCase();
     if (tag === "br") return "<br>";
+    if (tag === "img") {
+      const src = el.getAttribute("src") ?? "";
+      const alt = escapeHtml(el.getAttribute("alt") ?? "");
+      if (PAGE_IMAGE.test(src)) {
+        const size = ["width", "height"]
+          .filter((a) => /^\d{1,5}$/.test(el.getAttribute(a) ?? ""))
+          .map((a) => `${a}="${el.getAttribute(a)}"`)
+          .join(" ");
+        return `<img src="${src}" alt="${alt}"${size ? " " + size : ""}>`;
+      }
+      // Web pictures can't load in the page (no network) — link to them.
+      const href = safeHref(src);
+      return href ? `<p><a href="${escapeHtml(href)}" rel="noopener noreferrer">[Image${alt ? `: ${alt}` : ""}]</a></p>` : "";
+    }
     const attrs: string[] = [];
     if (tag === "a") {
       const href = safeHref(el.getAttribute("href"));
@@ -236,6 +323,13 @@ export function sanitizeHtml(html: string): string {
     if (tag === "span" && size && /^(small|large|huge)$/.test(size)) attrs.push(`data-size="${size}"`);
     const spacing = el.getAttribute("data-spacing");
     if (spacing && /^(compact|relaxed|double)$/.test(spacing)) attrs.push(`data-spacing="${spacing}"`);
+    if ((tag === "td" || tag === "th") ) {
+      for (const a of ["colspan", "rowspan"]) {
+        const v = el.getAttribute(a);
+        if (v && /^[1-9]\d?$/.test(v)) attrs.push(`${a}="${v}"`);
+      }
+    }
+    if (tag === "table") return `<div class="table"><table>${inner}</table></div>`;
     if (tag === "span" && !attrs.length) return inner;
     return `<${tag}${attrs.length ? " " + attrs.join(" ") : ""}>${inner}</${tag}>`;
   };
@@ -264,6 +358,11 @@ function blockToHtml(block: NoteBlock): string {
       return "<hr>";
     case "password":
       return `<p class="locked">🔒 ${escapeHtml(block.label || "Password")} — encrypted, not included</p>`;
+    case "chart": {
+      const svg = chartSvg(block);
+      const title = escapeHtml(block.title.trim() || "Chart");
+      return `<figure class="chart"><figcaption>${title}</figcaption>${svg ?? '<p class="locked">No data yet</p>'}</figure>`;
+    }
   }
 }
 
@@ -303,6 +402,12 @@ a{color:#4f46e5;text-decoration-color:#a5b4fc;text-underline-offset:3px}
 .linkblock span{color:#a3a3a3;font-size:12px}
 hr{border:0;border-top:1px solid #e5e5e5;margin:14px 0}
 .locked{color:#a3a3a3}
+.text img{display:block;max-width:100%;height:auto;border-radius:8px;margin:.4em 0}
+.table{overflow-x:auto;margin:.4em 0}
+table{border-collapse:collapse;min-width:50%}th,td{border:1px solid #e5e5e5;padding:6px 10px;text-align:left;vertical-align:top}
+th{background:#fafafa;font-weight:600}td p,th p{margin:0}
+.chart{margin:0;border:1px solid #e5e5e5;border-radius:12px;padding:10px 14px}
+.chart figcaption{font-weight:600;font-size:14px;margin-bottom:6px}
 footer{color:#a3a3a3;font-size:12px;text-align:center;margin-top:32px}
 `;
 
@@ -367,10 +472,31 @@ export function buildProjectArchive(project: NoteProject, notes: Note[], exporte
   files[`${folder}/${pageName}`] = strToU8(projectHtmlPage(project, notes, exportedAt));
   dates[`${folder}/${pageName}`] = new Date(exportedAt);
 
+  const usedImages = new Set<string>();
+  const saved = new Map<string, string>();
   notes.forEach((note, i) => {
-    const base = `${String(i + 1).padStart(pad, "0")} ${safeFileName(note.title, "Untitled")}`;
+    const number = String(i + 1).padStart(pad, "0");
+    const base = `${number} ${safeFileName(note.title, "Untitled")}`;
     const name = `${folder}/${uniqueFileName(base, ".md", used)}`;
-    files[name] = strToU8(noteToMarkdown(note));
+    let count = 0;
+    // Pictures go to images/ beside the Markdown (same picture → same file).
+    const sink: ImageSink = (src) => {
+      const m = src.match(/^data:image\/(png|jpeg|gif|webp);base64,([A-Za-z0-9+/=]+)$/i);
+      if (!m) return null;
+      const known = saved.get(src);
+      if (known) return known;
+      count += 1;
+      const ext = m[1].toLowerCase() === "jpeg" ? ".jpg" : `.${m[1].toLowerCase()}`;
+      const file = uniqueFileName(`${number}-${count}`, ext, usedImages);
+      const bin = atob(m[2]);
+      const bytes = new Uint8Array(bin.length);
+      for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+      files[`${folder}/images/${file}`] = bytes;
+      dates[`${folder}/images/${file}`] = new Date(note.updatedAt);
+      saved.set(src, `images/${encodeURI(file)}`);
+      return `images/${encodeURI(file)}`;
+    };
+    files[name] = strToU8(noteToMarkdown(note, sink));
     dates[name] = new Date(note.updatedAt);
   });
 

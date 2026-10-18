@@ -6,7 +6,8 @@ export type NoteBlockType =
   | "link"
   | "password"
   | "callout"
-  | "divider";
+  | "divider"
+  | "chart";
 
 interface BaseBlock {
   id: string;
@@ -62,13 +63,31 @@ export interface PasswordBlock extends BaseBlock {
   salt?: string;
 }
 
+export type ChartKind = "bar" | "line" | "pie";
+
+export interface ChartPoint {
+  id: string;
+  label: string;
+  /** null = not filled in yet. */
+  value: number | null;
+}
+
+/** A small chart drawn from a list of labelled values. */
+export interface ChartBlock extends BaseBlock {
+  type: "chart";
+  kind: ChartKind;
+  title: string;
+  points: ChartPoint[];
+}
+
 export type NoteBlock =
   | TextBlock
   | ChecklistBlock
   | LinkBlock
   | CalloutBlock
   | DividerBlock
-  | PasswordBlock;
+  | PasswordBlock
+  | ChartBlock;
 
 /** A folder-like group of related notes (e.g. one product or initiative). */
 export interface NoteProject {

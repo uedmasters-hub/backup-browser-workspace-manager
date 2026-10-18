@@ -26,6 +26,19 @@ export default function ChecklistBlockView({
   const [copied, copy] = useCopy();
 
   const firstRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  /** Item to focus once it has rendered (after Enter / Backspace). */
+  const focusItem = useRef<{ id: string; at: "start" | "end" } | null>(null);
+  useEffect(() => {
+    const target = focusItem.current;
+    if (!target) return;
+    focusItem.current = null;
+    const input = listRef.current?.querySelector<HTMLInputElement>(`[data-item="${CSS.escape(target.id)}"]`);
+    if (!input) return;
+    input.focus();
+    const n = target.at === "start" ? 0 : input.value.length;
+    input.setSelectionRange(n, n);
+  });
   useEffect(() => {
     if (focusBlockId === block.id) {
       firstRef.current?.focus();
@@ -50,7 +63,7 @@ export default function ChecklistBlockView({
       copied={copied}
       empty={isBlockEmpty(block)}
     >
-      <div className="space-y-0.5 px-2 py-1">
+      <div ref={listRef} className="space-y-0.5 px-2 py-1">
         {block.items.map((item) => (
           <div key={item.id} className="flex items-center gap-2.5">
             <button
@@ -75,6 +88,7 @@ export default function ChecklistBlockView({
 
             <input
               ref={item.id === block.items[0]?.id ? firstRef : undefined}
+              data-item={item.id}
               value={item.text}
               placeholder="To-do"
               onChange={(e) =>
@@ -85,15 +99,24 @@ export default function ChecklistBlockView({
                 )
               }
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
+                // Enter: a new item right below, ready to type in.
+                if (e.key === "Enter" && !e.nativeEvent.isComposing) {
                   e.preventDefault();
-                  patch([...block.items, newItem()]);
+                  const created = newItem();
+                  const at = block.items.findIndex((i) => i.id === item.id);
+                  const items = [...block.items];
+                  items.splice(at + 1, 0, created);
+                  focusItem.current = { id: created.id, at: "start" };
+                  patch(items);
                 }
                 // Backspace on an empty item removes it; on the last one,
                 // the checklist turns back into a plain line.
                 if (e.key === "Backspace" && item.text === "") {
                   e.preventDefault();
                   if (block.items.length > 1) {
+                    const at = block.items.findIndex((i) => i.id === item.id);
+                    const prev = block.items[at - 1] ?? block.items[at + 1];
+                    if (prev) focusItem.current = { id: prev.id, at: "end" };
                     patch(block.items.filter((i) => i.id !== item.id));
                   } else {
                     transformBlock(block.id, "text");
@@ -112,7 +135,11 @@ export default function ChecklistBlockView({
 
         <button
           type="button"
-          onClick={() => patch([...block.items, newItem()])}
+          onClick={() => {
+            const created = newItem();
+            focusItem.current = { id: created.id, at: "start" };
+            patch([...block.items, created]);
+          }}
           className="mt-1 flex items-center gap-1.5 pl-[2px] text-xs text-neutral-400 transition-colors hover:text-neutral-600"
         >
           <Plus size={13} /> Add item

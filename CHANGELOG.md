@@ -2,8 +2,54 @@
 
 ## Unreleased
 
+### Changed
+
+- **Writing in a note reads like one document.** Lines you add while typing
+  no longer show a "Type /" hint inside the block, and the block being edited
+  never gets a grey box around it.
+  - The "next line" is its own row under the last line (or the empty line
+    after a checklist, link, chart…). Its hint shows when you're not writing
+    above it, and hides while you are. Click it — or anywhere on the empty
+    page below the note — to start a new line; blank lines left at the end
+    are tidied away when you leave.
+  - **Tab** moves to the next block (and on to a new line after the last),
+    **Shift+Tab** to the previous one — back to the title from the first.
+    In lists Tab still indents; in tables it moves between cells. **↑ / ↓**
+    on a block's first or last line step into the neighbouring block, and
+    Enter / ↓ in the title goes into the note.
+  - Keys typed straight after Enter or Tab are never lost to the old spot.
+  - Checklists: Enter adds the next item right below and moves into it;
+    Backspace on an empty item goes back to the one above.
+
 ### Added
 
+- **Images, tables and charts in notes** — from the "/" menu (now titled
+  *Blocks*) or by pasting.
+  - **Image**: pick files, or paste / drop pictures (screenshots, copied
+    images, charts copied from Excel or Sheets). Pictures are shrunk to at
+    most 1600 px and kept inside the note as PNG/JPEG — so they work offline,
+    are encrypted in locked notes and projects, and go into backups and
+    downloads. Pictures from web pages are fetched and stored the same way
+    (if a site refuses, the picture stays as a web image).
+  - **Table**: a 3×3 table with a header row; a small bar above it adds or
+    removes rows and columns, toggles the header, or deletes the table. Tab
+    moves cell to cell and adds a row at the end.
+  - **Chart**: bar, line or pie, drawn from a label/value table you can type
+    in or paste rows into from a spreadsheet ("1,200", "₹2,50,000", "45%",
+    "(30)" all read correctly).
+  - **Pasting** keeps headings, lists, links, bold/italic/underline/strike,
+    alignment, tables (including merged cells), images and SVG charts (as
+    pictures). Tab-separated text becomes a table. Fallbacks: video, audio
+    and embedded pages become a link to their source; fonts, colours,
+    scripts, tracking pixels and icons are dropped; callouts keep the text of
+    a pasted table and leave pictures out.
+  - Word / Rich Text downloads include pictures (embedded), tables (merged
+    cells kept) and charts (as pictures, with their title kept on the same
+    page). The project ZIP saves pictures into an `images/` folder used by
+    the Markdown files; the HTML page shows pictures, tables and charts.
+    Plain text shows `[Image: …]`, tables as `A | B` rows and chart data.
+- `unlimitedStorage` permission (no install warning), so notes with pictures
+  can't run into Chrome's 10 MB storage limit and stop saving.
 - **Download a note as Word or Rich Text.** The note's ⋮ menu now has
   *Download as* → **Word document (.docx)**, **Rich text (.rtf)** or
   **Plain text (.txt)**.

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { EditorContent } from "@tiptap/react";
 
@@ -7,6 +8,7 @@ import { useRichEditor } from "../rich/useRichEditor";
 import { useCopy } from "../useCopy";
 import { isBlockEmpty } from "../blockTypes";
 import { blockHtml } from "../richText";
+import { handleRichNavKey, registerEditor } from "../blockNav";
 
 import { useNotesStore } from "../../../../stores/notesStore";
 import type {
@@ -45,6 +47,7 @@ export default function CalloutBlockView({
   const updateBlock = useNotesStore((s) => s.updateBlock);
   const transformBlock = useNotesStore((s) => s.transformBlock);
   const focusBlockId = useNotesStore((s) => s.focusBlockId);
+  const focusAt = useNotesStore((s) => s.focusAt);
   const consumeFocus = useNotesStore((s) => s.consumeFocus);
   const [copied, copy] = useCopy();
 
@@ -53,9 +56,11 @@ export default function CalloutBlockView({
     html: blockHtml(block),
     placeholder: "Callout…",
     autoFocus: focusBlockId === block.id,
+    focusAt,
     onAutoFocused: consumeFocus,
     onChange: (part) => updateBlock(block.id, part),
     onKeyDown: (event, ed) => {
+      if (handleRichNavKey(event, ed, block.id)) return true;
       // Backspace in an empty callout turns it back into a plain line.
       if (event.key === "Backspace" && ed.isEmpty) {
         transformBlock(block.id, "text");
@@ -72,6 +77,8 @@ export default function CalloutBlockView({
     const next = ORDER[(ORDER.indexOf(block.tone) + 1) % ORDER.length];
     updateBlock(block.id, { tone: next });
   }
+
+  useEffect(() => (editor ? registerEditor(block.id, editor) : undefined), [editor, block.id]);
 
   if (!editor) return null;
 
