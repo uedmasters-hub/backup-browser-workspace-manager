@@ -150,6 +150,12 @@ export function trimTrailingEmptyLines(ed: Editor): void {
   }
 }
 
+/** Leave the section: focus and caret go, so it shows as inactive. */
+export function deactivate(el: HTMLElement): void {
+  el.blur();
+  window.getSelection()?.removeAllRanges();
+}
+
 /** The caret can't go further up / down inside this editor. */
 export function atEditorEdge(view: EditorView, dir: 1 | -1): boolean {
   const { selection, doc } = view.state;
@@ -163,13 +169,19 @@ export function atEditorEdge(view: EditorView, dir: 1 | -1): boolean {
 }
 
 /**
- * Shared key handling for a rich-text block: Tab / Shift+Tab move between
+ * Shared key handling for a rich-text block: Esc leaves the section,
+ * Tab / Shift+Tab move between
  * blocks (indent / outdent inside lists, next / previous cell in tables),
  * ↑ on the first line and ↓ on the last move to the neighbouring block.
  * Returns true when the key was used.
  */
 export function handleRichNavKey(event: KeyboardEvent, ed: Editor, blockId: string): boolean {
   if (event.altKey || event.metaKey || event.ctrlKey) return false;
+  // Esc: done with this section — it turns inactive (content stays as is).
+  if (event.key === "Escape" && !event.shiftKey) {
+    deactivate(ed.view.dom);
+    return true;
+  }
   if (event.key === "Tab") {
     const back = event.shiftKey;
     if (ed.isActive("table")) {

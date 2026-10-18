@@ -77,7 +77,7 @@ const LineSpacing = Extension.create({
 
 export type RichVariant = "full" | "callout";
 
-/** The hint on the "next line" — the row under the note, or the empty line you're on. */
+/** The hint on the "next line" — the row under the note, or an empty Text block. */
 export const NEXT_LINE_HINT = "Write something, or press “/” for blocks…";
 
 /**
@@ -133,15 +133,10 @@ export function richExtensions(
           TableKit.configure({ table: { resizable: false, allowTableNodeSelection: true } }),
         ]
       : []),
-    // An empty block shows its hint. Inside a block, only the empty last
-    // line you've moved onto (Enter at the end) shows it — that line is the
-    // next section; lines in the middle stay clean while you write.
+    // Only an empty block has a hint (never the lines of the block you're
+    // writing in); CSS hides it while that block — or the one above — is active.
     Placeholder.configure({
-      placeholder: ({ editor, node, pos, hasAnchor }) => {
-        if (editor.isEmpty) return emptyPlaceholder;
-        if (!full || !hasAnchor || node.type.name !== "paragraph") return "";
-        return pos + node.nodeSize === editor.state.doc.content.size ? NEXT_LINE_HINT : "";
-      },
+      placeholder: ({ editor }) => (editor.isEmpty ? emptyPlaceholder : ""),
     }),
   ];
 }

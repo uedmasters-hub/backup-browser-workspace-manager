@@ -4,14 +4,17 @@
 
 ### Changed
 
-- **Writing in a note reads like one document.** No hint shows on the lines
-  of the block you're writing in, and while you're writing in a block it has
-  no grey box around it (sections still highlight on hover otherwise).
-  - The next section is always visible right under the text — while you
-    type, and after you leave — as a row that looks like an empty block.
-    Clicking it (or anywhere on the empty page below the note) turns it into
-    a real block in the same spot, cursor ready. Press Enter at the end of a
-    block and the hint moves onto that empty line instead.
+- **Writing in a note reads like one document — with active and inactive
+  sections.** The section you're editing is highlighted and shows no hint
+  inside it (not even on new empty lines), and the next section's hint stays
+  hidden while you write.
+  - Click outside the section or press **Esc** and it turns inactive: the
+    highlight goes, the content stays, and the next line's hint appears
+    right under it (as a row that looks like an empty block, or the empty
+    block after a checklist, link, chart…). Clicking that hint makes it the
+    active section in the same spot, cursor ready — so does Tab from the
+    last section. A click on the empty page below an inactive note also
+    starts the next section.
   - Blank lines left at the end of a block are tidied when you leave it and
     when a note opens, so the next section always sits right under the text.
   - Changes are saved the moment the popup closes (saves used to wait

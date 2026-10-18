@@ -14,7 +14,7 @@ import { filesToImages, inlineForeignImages, insertImages, isImageFile } from ".
 export const LINK_EVENT = "bwm:edit-link";
 
 const CLASSES: Record<RichVariant, string> = {
-  full: "bwm-rich px-2 py-1.5 text-[15px] leading-relaxed text-neutral-800",
+  full: "bwm-rich bwm-text px-2 py-1.5 text-[15px] leading-relaxed text-neutral-800",
   callout: "bwm-rich w-full text-sm leading-relaxed text-neutral-700",
 };
 
