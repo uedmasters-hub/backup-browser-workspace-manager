@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## v1.2.4 — 2026-10-18
+
+Images, tables and charts in notes; document-like writing; Word / Rich Text
+downloads.
 
 ### Changed
 

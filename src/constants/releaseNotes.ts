@@ -4,6 +4,12 @@
  * Keep each line short and user-facing.
  */
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "1.2.4": [
+    "Notes: add images, tables and charts from the “/” menu — or just paste them.",
+    "Pasted tables, pictures and formatting from Docs, Sheets and the web are kept.",
+    "Writing flows like a document: Tab moves on, Esc finishes a section.",
+    "Download a note as a Word document or Rich Text, pictures and tables included.",
+  ],
   "1.2.3": [
     "Auto Group Tabs: tap the new header icon to sort tabs into groups by topic.",
     "Review the groups first; new tabs then join the right group on their own.",

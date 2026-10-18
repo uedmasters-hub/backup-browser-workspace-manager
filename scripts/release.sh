@@ -21,7 +21,9 @@ set -euo pipefail
 
 # Permissions on the published store listing. Change these ONLY together with
 # a deliberate permission change (and an updated store justification).
-PUBLISHED_PERMISSIONS="tabs tabGroups storage bookmarks history downloads sessions scripting"
+# v1.2.4 added unlimitedStorage (notes keep their pictures) — it shows no
+# install warning, so updating users aren't asked to re-approve.
+PUBLISHED_PERMISSIONS="tabs tabGroups storage unlimitedStorage bookmarks history downloads sessions scripting"
 PUBLISHED_HOSTS="<all_urls>"
 
 # Template leftovers in public/ that nothing references — kept out of the zip.
