@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import {
   ChevronLeft,
   FolderInput,
   MoreVertical,
-  Download,
+  File,
+  FileText,
+  FileType,
   Lock,
   LockOpen,
   Trash2,
@@ -15,10 +18,16 @@ import BlockRenderer from "./blocks/BlockRenderer";
 import PinPrompt from "./PinPrompt";
 import LockGate from "./LockGate";
 import MoveToProjectMenu from "./projects/MoveToProjectMenu";
-import DropdownMenu, { MenuDivider, MenuRow } from "./menus/DropdownMenu";
-import { noteToText } from "./serialize";
+import DropdownMenu, { MenuCaption, MenuDivider, MenuRow } from "./menus/DropdownMenu";
 
 import type { Note } from "../../../types/notes";
+import type { NoteDownloadFormat } from "./noteDownload";
+
+const DOWNLOADS: { format: NoteDownloadFormat; label: string; icon: ReactNode }[] = [
+  { format: "docx", label: "Word document", icon: <FileText size={14} /> },
+  { format: "rtf", label: "Rich text", icon: <FileType size={14} /> },
+  { format: "txt", label: "Plain text", icon: <File size={14} /> },
+];
 
 export default function NoteEditor({ note }: { note: Note }) {
   const closeNote = useNotesStore((s) => s.closeNote);
@@ -57,17 +66,9 @@ export default function NoteEditor({ note }: { note: Note }) {
     if (!secured) normalizeTextBlocks();
   }, [secured, note.id, normalizeTextBlocks]);
 
-  function download() {
-    const text = noteToText(note);
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${note.title.trim() || "note"}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+  function download(format: NoteDownloadFormat) {
+    // Export code loads on demand — it's only needed for downloads.
+    void import("./noteDownload").then(({ downloadNote }) => downloadNote(note, format));
   }
 
   // ----- Locked & hidden: a gate. No content, no export, no plain delete. -----
@@ -155,7 +156,7 @@ export default function NoteEditor({ note }: { note: Note }) {
             <MoreVertical size={17} />
           </button>
           {actionsAnchor && (
-            <DropdownMenu anchor={actionsAnchor} onClose={() => setActionsAnchor(null)} label="Note actions" width={216}>
+            <DropdownMenu anchor={actionsAnchor} onClose={() => setActionsAnchor(null)} label="Note actions" width={232}>
               <MenuRow
                 icon={locked ? <Lock size={14} /> : <LockOpen size={14} />}
                 tone={locked ? "warning" : "default"}
@@ -166,14 +167,20 @@ export default function NoteEditor({ note }: { note: Note }) {
                   else setMode("lock");
                 }}
               />
-              <MenuRow
-                icon={<Download size={14} />}
-                label="Download as text"
-                onSelect={() => {
-                  setActionsAnchor(null);
-                  download();
-                }}
-              />
+              <MenuDivider />
+              <MenuCaption>Download as</MenuCaption>
+              {DOWNLOADS.map((d) => (
+                <MenuRow
+                  key={d.format}
+                  icon={d.icon}
+                  label={d.label}
+                  trailing={<span className="shrink-0 text-[11px] text-neutral-400">.{d.format}</span>}
+                  onSelect={() => {
+                    setActionsAnchor(null);
+                    download(d.format);
+                  }}
+                />
+              ))}
               <MenuDivider />
               <MenuRow
                 icon={<Trash2 size={14} />}
